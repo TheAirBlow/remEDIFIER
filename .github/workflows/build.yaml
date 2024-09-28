@@ -1,0 +1,90 @@
+name: Build remEDIFIER
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    name: Build Linux binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+      - name: Build
+        run: |
+          cd libcomhelper
+          qmake
+          make
+          cd ..
+          dotnet publish remEDIFIER/remEDIFIER.csproj
+          rm remEDIFIER/bin/Release/net8.0/linux-x64/publish/remEDIFIER.dbg
+          rm remEDIFIER/bin/Release/net8.0/linux-x64/publish/readme.md
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux
+          path: remEDIFIER/bin/Release/net8.0/linux-x64/publish/
+  build-macos-arm:
+    name: Build MacOS binary
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+      - name: Build
+        run: |
+          cd libcomhelper
+          qmake
+          make
+          cd ..
+          dotnet publish remEDIFIER/remEDIFIER.csproj
+          mkdir -p remEDIFIER.app/Contents/MacOS
+          mv remEDIFIER/bin/Release/net8.0/osx-arm64/publish/* remEDIFIER.app/Contents/MacOS/
+          rm -rf remEDIFIER.app/Contents/MacOS/remEDIFIER.dsym
+          rm remEDIFIER.app/Contents/MacOS/readme.md
+          mv libcomhelper/build/libQt5Core.dylib remEDIFIER.app/Contents/MacOS/
+          mv libcomhelper/build/libQt5Bluetooth.dylib remEDIFIER.app/Contents/MacOS/
+          mv Info.plist remEDIFIER.app/Contents/
+          install_name_tool -add_rpath @loader_path/../MacOS remEDIFIER.app/Contents/MacOS/libcomhelper.dylib
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacOS ARM
+          path: remEDIFIER.app
+  build-windows:
+    name: Build Windows binary
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+      - name: Build
+        run: |
+          cd libcomhelper
+          qmake
+          nmake
+          cd ..
+          dotnet publish remEDIFIER/remEDIFIER.csproj
+          mv libcomhelper/build/Qt5Core.dll remEDIFIER/bin/x64/Release/net8.0/win-x64/publish/
+          mv libcomhelper/build/Qt5Bluetooth.dll remEDIFIER/bin/x64/Release/net8.0/win-x64/publish/
+          rm remEDIFIER/bin/x64/Release/net8.0/win-x64/publish/remEDIFIER.pdb
+          rm remEDIFIER/bin/x64/Release/net8.0/win-x64/publish/raylib.pdb
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows
+          path: remEDIFIER/bin/x64/Release/net8.0/win-x64/publish/

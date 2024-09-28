@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <StackTraceSupport>false</StackTraceSupport>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <EventSourceSupport>false</EventSourceSupport>
+        <DebuggerSupport>false</DebuggerSupport>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+        <OutputType>WinExe</OutputType>
+        <TrimMode>partial</TrimMode>
+        <InvariantGlobalization>true</InvariantGlobalization>
+        <Title>remEDIFIER</Title>
+        <Authors>TheAirBlow</Authors>
+        <Description>A remedy for all your Edifier needs</Description>
+        <Copyright>Copyright © TheAirBlow 2024</Copyright>
+        <PackageProjectUrl>https://github.com/TheAirBlow/remEDIFIER</PackageProjectUrl>
+        <PackageLicenseUrl>https://github.com/TheAirBlow/remEDIFIER/blob/main/LICENCE</PackageLicenseUrl>
+        <RepositoryUrl>https://github.com/TheAirBlow/remEDIFIER.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <IsPackable>false</IsPackable>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Raylib_ImGui" Version="1.0.2" />
+      <PackageReference Include="Serilog" Version="4.0.2-dev-02226" />
+      <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
+      <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <InvariantGlobalization>true</InvariantGlobalization>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Assets/products.json">
+            <LogicalName>products.json</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets/font.ttf">
+            <LogicalName>font.ttf</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Assets/logo.png">
+            <LogicalName>logo.png</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <PropertyGroup>
+        <_IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</_IsWindows>
+        <_IsMacOS Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true'">true</_IsMacOS>
+        <_IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</_IsLinux>
+
+        <_NativeRuntime Condition=" '$(_NativeRuntime)' == '' And '$(_IsMacOS)' == 'true'">osx</_NativeRuntime>
+        <_NativeRuntime Condition=" '$(_NativeRuntime)' == '' And '$(_IsLinux)' == 'true' And ('$(Prefer32Bit)' == 'false' Or '$(PlatformTarget)' == 'x64')">linux-x64</_NativeRuntime>
+        <_NativeRuntime Condition=" '$(_NativeRuntime)' == '' And '$(_IsWindows)' == 'true' And ('$(Prefer32Bit)' == 'false' Or '$(PlatformTarget)' == 'x64')">win-x64</_NativeRuntime>
+
+        <_NativeLibName Condition="'$(_NativeRuntime)' == 'win-x64'">comhelper.dll</_NativeLibName>
+        <_NativeLibName Condition="'$(_NativeRuntime)' == 'osx'">libcomhelper.dylib</_NativeLibName>
+        <_NativeLibName Condition="'$(_NativeRuntime)' == 'linux-x64'">libcomhelper.so</_NativeLibName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Content Condition="'$(_NativeRuntime)' != ''" Include="$(MSBuildThisFileDirectory)\..\libcomhelper\build\$(_NativeLibName)">
+            <Link>%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+            <Visible>False</Visible>
+        </Content>
+    </ItemGroup>
+</Project>
