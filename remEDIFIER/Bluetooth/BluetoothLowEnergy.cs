@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace remEDIFIER.Bluetooth;
@@ -5,6 +6,7 @@ namespace remEDIFIER.Bluetooth;
 /// <summary>
 /// Bluetooth low energy agent
 /// </summary>
+[SuppressMessage("ReSharper", "PrivateFieldCanBeConvertedToLocalVariable")]
 public partial class BluetoothLowEnergy : IBluetooth {
     /// <summary>
     /// Unmanaged class instance
@@ -24,27 +26,49 @@ public partial class BluetoothLowEnergy : IBluetooth {
     /// <summary>
     /// Device connected event
     /// </summary>
-    public event GenericDelegate? DeviceConnected;
+    public event IBluetooth.GenericDelegate? DeviceConnected;
     
     /// <summary>
     /// Device disconnected event
     /// </summary>
-    public event GenericDelegate? DeviceDisconnected;
+    public event IBluetooth.GenericDelegate? DeviceDisconnected;
 
     /// <summary>
     /// Error occured event
     /// </summary>
-    public event ErrorDelegate? ErrorOccured;
+    public event IBluetooth.ErrorDelegate? ErrorOccured;
+    
+    /// <summary>
+    /// Connected callback
+    /// </summary>
+    private readonly GenericCallback _connectedCallback;
+    
+    /// <summary>
+    /// Connected callback
+    /// </summary>
+    private readonly GenericCallback _disconnectedCallback;
+    
+    /// <summary>
+    /// Connected callback
+    /// </summary>
+    private readonly ErrorCallback _errorCallback;
+    
+    /// <summary>
+    /// Connected callback
+    /// </summary>
+    private readonly DataCallback _dataCallback;
 
     /// <summary>
     /// Creates a new bluetooth low energy agent
     /// </summary>
     public BluetoothLowEnergy() {
         _wrapper = CreateBluetoothLowEnergy();
-        SetConnectedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new GenericCallback(ConnectedHandler)));
-        SetDisconnectedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new GenericCallback(DisconnectedHandler)));
-        SetErrorCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new ErrorCallback(ErrorHandler)));
-        SetDataCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new DataCallback(DataHandler)));
+        _errorCallback = ErrorHandler; _dataCallback = DataHandler;
+        _connectedCallback = ConnectedHandler; _disconnectedCallback = DisconnectedHandler;
+        SetConnectedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_connectedCallback));
+        SetDisconnectedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_disconnectedCallback));
+        SetErrorCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_errorCallback));
+        SetDataCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_dataCallback));
     }
 
     /// <summary>
@@ -117,16 +141,6 @@ public partial class BluetoothLowEnergy : IBluetooth {
         Marshal.Copy(data, buf, 0, buf.Length);
         DataReceived?.Invoke(buf);
     }
-    
-    /// <summary>
-    /// Generic empty delegate
-    /// </summary>
-    public delegate void GenericDelegate();
-    
-    /// <summary>
-    /// Error message delegate
-    /// </summary>
-    public delegate void ErrorDelegate(string message, int code);
     
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void DataCallback(IntPtr data, uint length);

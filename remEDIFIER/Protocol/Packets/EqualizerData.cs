@@ -22,8 +22,8 @@ public class EqualizerData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf)
-        => Preset = support.EqualizerValue!.Map(buf[0]);
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf)
+        => Preset = support!.EqualizerValue!.Map(buf[0]);
 
     /// <summary>
     /// Serializes packet to byte buffer
@@ -31,6 +31,6 @@ public class EqualizerData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support)
-        => [support.EqualizerValue!.Map(Preset)];
+    public byte[] Serialize(PacketType type, SupportData? support)
+        => [support!.EqualizerValue!.Map(Preset)];
 }

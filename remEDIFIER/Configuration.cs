@@ -45,6 +45,11 @@ public class Configuration {
     /// Applies only if the connected device is an audio device.
     /// </summary>
     public bool AutoConnectOverClassic { get; set; } = true;
+
+    /// <summary>
+    /// A list of devices mac addresses that user has connected to manually before
+    /// </summary>
+    public List<string> ConnectedToBefore { get; set; } = [];
     
     /// <summary>
     /// Save configuration changes

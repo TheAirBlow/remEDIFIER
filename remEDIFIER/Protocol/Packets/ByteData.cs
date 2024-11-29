@@ -7,7 +7,7 @@ public class ByteData : IPacketData {
     /// <summary>
     /// Packet type to apply this data object to
     /// </summary>
-    public PacketType[] Types => [PacketType.SetPromptVolume, PacketType.GetPromptVolume];
+    public PacketType[] Types => [PacketType.SetPromptVolume, PacketType.GetPromptVolume, PacketType.GetBattery];
     
     /// <summary>
     /// Current byte value
@@ -20,7 +20,7 @@ public class ByteData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf)
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf)
         => Value = buf[0];
 
     /// <summary>
@@ -29,6 +29,6 @@ public class ByteData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support)
+    public byte[] Serialize(PacketType type, SupportData? support)
         => [Value];
 }

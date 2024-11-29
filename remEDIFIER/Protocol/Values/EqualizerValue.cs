@@ -29,8 +29,7 @@ public class EqualizerValue {
     /// </summary>
     /// <param name="value">Value</param>
     public EqualizerValue(byte value) {
-        if (!_valueMapping.TryGetValue(value, out var types))
-            throw new ArgumentOutOfRangeException(nameof(value), "Unknown equalizer value specified");
+        if (!_valueMapping.TryGetValue(value, out var types)) types = [];
         Names = types.Select(x => _nameMapping[x]).ToArray();
         Value = value; Presets = types;
     }

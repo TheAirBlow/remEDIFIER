@@ -4,14 +4,16 @@ using ImGuiNET;
 using Raylib_CsLo;
 using Raylib_ImGui;
 using Raylib_ImGui.Windows;
+using remEDIFIER;
 using remEDIFIER.Bluetooth;
+using remEDIFIER.Windows;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 Log.Information("Starting remEDIFIER version {0} by TheAirBlow",
     Assembly.GetExecutingAssembly().GetName().Version);
 
-BluetoothLoop.StartLoop();
+BluetoothLoop.Start();
 Log.Information("Started QCoreApplication loop");
 
 var renderer = new ImGuiRenderer();
@@ -28,18 +30,23 @@ unsafe {
     ImGui.GetIO().Fonts.Clear();
     var font = Assembly.GetExecutingAssembly()
         .GetEmbeddedResource("font.ttf");
+    var builder = new ImFontGlyphRangesBuilderPtr(ImGuiNative.ImFontGlyphRangesBuilder_ImFontGlyphRangesBuilder());
+    builder.AddRanges(ImGui.GetIO().Fonts.GetGlyphRangesDefault());
+    builder.AddRanges(ImGui.GetIO().Fonts.GetGlyphRangesJapanese());
+    builder.BuildRanges(out var ranges);
     fixed (byte* p = font) ImGui.GetIO().Fonts.AddFontFromMemoryTTF(
-        (IntPtr)p, font.Length, 18,
+        (IntPtr)p, font.Length, 24,
         ImGuiNative.ImFontConfig_ImFontConfig(), 
-        ImGui.GetIO().Fonts.GetGlyphRangesDefault());
+        ranges.Data);
     renderer.RecreateFontTexture();
 }
 
+_ = Images.Get("edifier");
 Raylib.SetWindowIcon(Assembly.GetExecutingAssembly()
-    .GetEmbeddedResource("logo.png").LoadAsImage(".png"));
+    .GetEmbeddedResource("edifier.png").LoadAsImage(".png"));
 var logo = Assembly.GetExecutingAssembly()
     .GetEmbeddedResource("logo.png").LoadAsTexture(".png");
-//renderer.OpenWindow(new MainWindow());
+renderer.OpenWindow(new DiscoveryWindow(renderer));
 
 Log.Information("Running main game loop");
 while (!Raylib.WindowShouldClose()) {
@@ -73,3 +80,4 @@ while (!Raylib.WindowShouldClose()) {
 
 Log.Information("Exiting and closing window");
 Raylib.CloseWindow();
+BluetoothLoop.Stop();

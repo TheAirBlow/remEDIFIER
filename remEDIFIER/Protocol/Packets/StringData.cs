@@ -22,7 +22,7 @@ public class StringData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf)
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf)
         => Value = Encoding.UTF8.GetString(buf);
 
     /// <summary>
@@ -31,7 +31,7 @@ public class StringData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support) {
+    public byte[] Serialize(PacketType type, SupportData? support) {
         if (type == PacketType.SetDeviceName && Value.Length > support.MaxDeviceName)
             throw new InvalidDataException("Specified device name string is longer than maximum supported by current headset");
         return Encoding.UTF8.GetBytes(Value);

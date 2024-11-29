@@ -20,7 +20,7 @@ public class AVCRPStateData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf)
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf)
         => State = (AVCRPState)buf[0];
 
     /// <summary>
@@ -29,7 +29,7 @@ public class AVCRPStateData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support)
+    public byte[] Serialize(PacketType type, SupportData? support)
         => throw new NotImplementedException();
 }
 

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace remEDIFIER.Bluetooth;
@@ -5,6 +6,7 @@ namespace remEDIFIER.Bluetooth;
 /// <summary>
 /// Bluetooth adapter
 /// </summary>
+[SuppressMessage("ReSharper", "PrivateFieldCanBeConvertedToLocalVariable")]
 public partial class BluetoothAdapter {
     /// <summary>
     /// Unmanaged class instance
@@ -14,7 +16,7 @@ public partial class BluetoothAdapter {
     /// <summary>
     /// Is Bluetooth is available
     /// </summary>
-    public bool BluetoothAvailable => IsBluetoothAvailable(_wrapper);
+    public bool BluetoothAvailable => IsBluetoothAvailable(_wrapper) > 0;
 
     /// <summary>
     /// Bluetooth adapter mac address
@@ -37,12 +39,23 @@ public partial class BluetoothAdapter {
     public event AddressDelegate? AdapterDisabled;
 
     /// <summary>
+    /// Enabled callback
+    /// </summary>
+    private readonly AddressCallback _enabledCallback;
+    
+    /// <summary>
+    /// Disabled callback
+    /// </summary>
+    private readonly AddressCallback _disabledCallback;
+
+    /// <summary>
     /// Creates a new bluetooth adapter
     /// </summary>
     public BluetoothAdapter() {
         _wrapper = CreateBluetoothAdapter();
-        SetAdapterDisabledCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new AddressCallback(DisabledCallback)));
-        SetAdapterEnabledCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(new AddressCallback(EnabledCallback)));
+        _enabledCallback = EnabledCallback; _disabledCallback = DisabledCallback;
+        SetAdapterDisabledCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_disabledCallback));
+        SetAdapterEnabledCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_enabledCallback));
     }
     
     /// <summary>
@@ -92,13 +105,13 @@ public partial class BluetoothAdapter {
     private static partial IntPtr CreateBluetoothAdapter();
     
     [LibraryImport("comhelper")]
-    private static partial IntPtr SetAdapterEnabledCallback(IntPtr wrapper, IntPtr callback);
+    private static partial void SetAdapterEnabledCallback(IntPtr wrapper, IntPtr callback);
     
     [LibraryImport("comhelper")]
-    private static partial IntPtr SetAdapterDisabledCallback(IntPtr wrapper, IntPtr callback);
+    private static partial void SetAdapterDisabledCallback(IntPtr wrapper, IntPtr callback);
     
     [LibraryImport("comhelper")]
-    private static partial bool IsBluetoothAvailable(IntPtr wrapper);
+    private static partial byte IsBluetoothAvailable(IntPtr wrapper);
     
     [LibraryImport("comhelper")]
     private static partial IntPtr GetAdapterAddress(IntPtr wrapper);

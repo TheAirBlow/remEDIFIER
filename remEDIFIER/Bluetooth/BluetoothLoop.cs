@@ -10,7 +10,7 @@ public partial class BluetoothLoop {
     /// <summary>
     /// Starts QCoreApplication loop
     /// </summary>
-    public static void StartLoop() {
+    public static void Start() {
         new Thread(() => {
             Log.Information("QCoreApplication loop exited with code {0}", RunApplication());
         }).Start();
@@ -23,6 +23,13 @@ public partial class BluetoothLoop {
             ExitApplication(0);
         };
     }
+
+    /// <summary>
+    /// Stops application loop
+    /// </summary>
+    /// <param name="code">Code</param>
+    public static void Stop(int code = 0)
+        => ExitApplication(code);
     
     [LibraryImport("comhelper")]
     private static partial int RunApplication();

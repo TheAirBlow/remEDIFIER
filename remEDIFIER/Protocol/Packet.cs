@@ -1,6 +1,8 @@
 using System.Data;
 using System.Reflection;
+using remEDIFIER.Bluetooth;
 using remEDIFIER.Protocol.Packets;
+using Serilog;
 
 namespace remEDIFIER.Protocol;
 
@@ -32,7 +34,7 @@ public static class Packet {
     /// <param name="support">Support Data</param>
     /// <param name="data">Packet Data</param>
     /// <returns>Data Buffer</returns>
-    public static byte[] Serialize(PacketType type, SupportData support, IPacketData? data = null) {
+    public static byte[] Serialize(PacketType type, SupportData? support = null, IPacketData? data = null) {
         if (data != null && !data.Types.Contains(type)) throw new ArgumentOutOfRangeException(
             nameof(data), $"Specified packet data type does not support {type.ToString()}");
         var dataBuf = data != null ? data.Serialize(type, support) : [];
@@ -52,14 +54,15 @@ public static class Packet {
     /// <param name="buf">Packet Buffer</param>
     /// <param name="support">Support Data</param>
     /// <returns>Packet Type and Data</returns>
-    public static (PacketType, IPacketData?) Deserialize(byte[] buf, SupportData support) {
+    public static (PacketType, IPacketData?) Deserialize(byte[] buf, SupportData? support = null) {
         if (buf.Length < 5) throw new ArgumentOutOfRangeException(
             nameof(buf), "There must be at least 5 bytes in a packet");
         if (buf[0] != 0xBB) throw new ArgumentOutOfRangeException(
             nameof(buf), $"Invalid packet header, expected BB but found {buf[0]:X2}");
-        if (buf.Length != buf[1] + 3) throw new ArgumentOutOfRangeException(
-            nameof(buf), $"Invalid packet length, expected {buf[1] + 3} but found {buf.Length}");
-        Signature(buf, true); var type = (PacketType)buf[2];
+        if (buf.Length != buf[1] + 4) throw new ArgumentOutOfRangeException(
+            nameof(buf), $"Invalid packet length, expected {buf[1] + 4} but found {buf.Length}");
+        Signature(buf, true);
+        var type = (PacketType)buf[2];
         _mapping.TryGetValue(type, out var data);
         if (data == null) return (type, data);
         var payload = new byte[buf[1] - 1];
@@ -67,21 +70,22 @@ public static class Packet {
         data.Deserialize(type, support, payload);
         return (type, data);
     }
-
+    
     /// <summary>
     /// Sets or verifies signature
     /// </summary>
     /// <param name="buf">Buffer</param>
     /// <param name="verify">Verify</param>
     private static void Signature(byte[] buf, bool verify = false) {
-        var crc = 8217;
+        ushort sum = 8217;
         for (var i = 0; i < buf.Length - 2; i++)
-            crc += buf[i] & 255;
-        var val1 = (crc >> 8) & 255;
-        var val2 = crc & 255;
+            sum += buf[i];
+        var val1 = (sum >> 8) & 255;
+        var val2 = sum & 255;
         if (verify) {
-            if (buf[^1] != val2 || buf[^2] != val1) throw new DataException(
-                $"Invalid signature, expected {val1:X2}{val2:X2} but found {buf[^2]:X2}{buf[^1]:X2}");
+            if (buf[^1] != val2 || buf[^2] != val1)
+                Log.Warning("Invalid signature, expected {0:X2}{1:X2} but found {2:X2}{3:X2} in {4}",
+                    val1, val2, buf[^2], buf[^1], Convert.ToHexString(buf));
             return;
         }
 

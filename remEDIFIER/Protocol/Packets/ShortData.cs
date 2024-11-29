@@ -20,7 +20,7 @@ public class ShortData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf)
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf)
         => Value = buf.Length < 2 ? buf[0] : BitConverter.ToUInt16(buf, 0);
 
     /// <summary>
@@ -29,6 +29,6 @@ public class ShortData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support)
+    public byte[] Serialize(PacketType type, SupportData? support)
         => Value > byte.MaxValue ? [(byte)Value] : BitConverter.GetBytes(Value);
 }

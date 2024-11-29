@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace remEDIFIER.Bluetooth;
@@ -5,6 +6,7 @@ namespace remEDIFIER.Bluetooth;
 /// <summary>
 /// Bluetooth device discovery agent
 /// </summary>
+[SuppressMessage("ReSharper", "PrivateFieldCanBeConvertedToLocalVariable")]
 public partial class BluetoothDiscovery {
     /// <summary>
     /// Unmanaged class instance
@@ -20,16 +22,26 @@ public partial class BluetoothDiscovery {
     /// Device discovery finished event
     /// </summary>
     public event DiscoveryFinishedDelegate? DiscoveryFinished;
+    
+    /// <summary>
+    /// Device discovered callback
+    /// </summary>
+    private readonly DeviceDiscoveredCallback _deviceDiscoveredCallback;
+    
+    /// <summary>
+    /// Discovery finished callback
+    /// </summary>
+    private readonly DiscoveryFinishedCallback _discoveryFinishedCallback;
 
     /// <summary>
     /// Creates a new bluetooth discovery agent
     /// </summary>
     public BluetoothDiscovery() {
         _wrapper = CreateDiscovery();
-        SetDeviceDiscoveredCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(
-            new DeviceDiscoveredCallback(DeviceDiscoveredHandler)));
-        SetDiscoveryFinishedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(
-            new DiscoveryFinishedCallback(DiscoveryFinishedHandler)));
+        _deviceDiscoveredCallback = DeviceDiscoveredHandler;
+        _discoveryFinishedCallback = DiscoveryFinishedHandler;
+        SetDeviceDiscoveredCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_deviceDiscoveredCallback));
+        SetDiscoveryFinishedCallback(_wrapper, Marshal.GetFunctionPointerForDelegate(_discoveryFinishedCallback));
     }
 
     /// <summary>

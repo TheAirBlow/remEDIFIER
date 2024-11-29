@@ -42,7 +42,7 @@ public class SupportData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
-    public void Deserialize(PacketType type, SupportData support, byte[] buf) {
+    public void Deserialize(PacketType type, SupportData? support, byte[] buf) {
         var features = new List<Feature>();
         if (buf.Length > 0) {
             AncValue = new ANCValue((byte)(buf[0] & 15));
@@ -89,74 +89,74 @@ public class SupportData : IPacketData {
             if (((buf[14] >> 7) & 1) == 1) features.Add(Feature.Shake);
         }
 
-        if (buf.Length > 15 && buf[15] > 0) {
+        if (buf.Length > 16 && buf[16] > 0) {
             // TODO: implement TapValue based on https://gist.github.com/TheAirBlow/c9db9a26ce182419d0b8d90ceaf209c3
             features.Add(Feature.TapControls); TapValue = buf[15];
         }
         
-        if (buf.Length > 16) {
-            if ((buf[16] & 1) == 1) features.Add(Feature.LedSettings);
-            if (((buf[16] >> 1) & 1) == 1) features.Add(Feature.BeepSwitchSettings);
-            if (((buf[16] >> 2) & 1) == 1) features.Add(Feature.InEarDetectionSettings);
-            if (((buf[16] >> 3) & 1) == 1) features.Add(Feature.TapSensitiveSettings);
-            if (((buf[16] >> 4) & 1) == 1) features.Add(Feature.BeepVolumeSettings);
-            if (((buf[16] >> 5) & 1) == 1) features.Add(Feature.DeviceResetSettings);
-            if (((buf[16] >> 6) & 1) == 1) features.Add(Feature.GameMode);
-            if (((buf[16] >> 7) & 1) == 1) features.Add(Feature.BoxBattery);
-        }
-        
         if (buf.Length > 17) {
-            if ((buf[17] & 1) == 1) features.Add(Feature.WearingFitDetection);
-            if (((buf[17] >> 1) & 1) == 1) features.Add(Feature.Lhdc);
-            if (((buf[17] >> 2) & 1) == 1) features.Add(Feature.Ldac);
-            if (((buf[17] >> 3) & 1) == 1) features.Add(Feature.EarmuffsSwitch);
-            if (((buf[17] >> 4) & 1) == 1) features.Add(Feature.WindNoiseSettings);
-            if (((buf[17] >> 5) & 1) == 1) features.Add(Feature.DeviceLeakDetection);
-            if (((buf[17] >> 6) & 1) == 1) features.Add(Feature.ClearPairingRecord);
-            if (((buf[17] >> 7) & 1) == 1) features.Add(Feature.LightColorSettings);
+            if ((buf[17] & 1) == 1) features.Add(Feature.LedSettings);
+            if (((buf[17] >> 1) & 1) == 1) features.Add(Feature.BeepSwitchSettings);
+            if (((buf[17] >> 2) & 1) == 1) features.Add(Feature.InEarDetectionSettings);
+            if (((buf[17] >> 3) & 1) == 1) features.Add(Feature.TapSensitiveSettings);
+            if (((buf[17] >> 4) & 1) == 1) features.Add(Feature.BeepVolumeSettings);
+            if (((buf[17] >> 5) & 1) == 1) features.Add(Feature.DeviceResetSettings);
+            if (((buf[17] >> 6) & 1) == 1) features.Add(Feature.GameMode);
+            if (((buf[17] >> 7) & 1) == 1) features.Add(Feature.BoxBattery);
         }
         
         if (buf.Length > 18) {
-            if ((buf[18] & 1) == 1) features.Add(Feature.InputSourceSettings);
-            if (((buf[18] >> 1) & 1) == 1) features.Add(Feature.VolumeSettings);
-            if (((buf[18] >> 2) & 1) == 1) features.Add(Feature.DragonSound);
-            if (((buf[18] >> 3) & 1) == 1) features.Add(Feature.AmbientLightTimingOffSettings);
-            if (((buf[18] >> 4) & 1) == 1) features.Add(Feature.MusicInfo);
-            if (((buf[18] >> 5) & 1) == 1) features.Add(Feature.Pressure);
-            if (((buf[18] >> 6) & 1) == 1) features.Add(Feature.Touch);
-            if (((buf[18] >> 7) & 1) == 1) features.Add(Feature.AmbientLight);
+            if ((buf[18] & 1) == 1) features.Add(Feature.WearingFitDetection);
+            if (((buf[18] >> 1) & 1) == 1) features.Add(Feature.Lhdc);
+            if (((buf[18] >> 2) & 1) == 1) features.Add(Feature.Ldac);
+            if (((buf[18] >> 3) & 1) == 1) features.Add(Feature.EarmuffsSwitch);
+            if (((buf[18] >> 4) & 1) == 1) features.Add(Feature.WindNoiseSettings);
+            if (((buf[18] >> 5) & 1) == 1) features.Add(Feature.DeviceLeakDetection);
+            if (((buf[18] >> 6) & 1) == 1) features.Add(Feature.ClearPairingRecord);
+            if (((buf[18] >> 7) & 1) == 1) features.Add(Feature.LightColorSettings);
         }
         
         if (buf.Length > 19) {
-            if ((buf[19] & 1) == 1) features.Add(Feature.SoundSpace);
-            if (((buf[19] >> 1) & 1) == 1) features.Add(Feature.PromptToneSettings);
-            if (((buf[19] >> 2) & 1) == 1) features.Add(Feature.HiRes);
-            if (((buf[19] >> 3) & 1) == 1) features.Add(Feature.Button);
-            if (((buf[19] >> 4) & 1) == 1) features.Add(Feature.HearingProtection);
-            if (((buf[19] >> 5) & 1) == 1) features.Add(Feature.TimeCalibration);
-            if (((buf[19] >> 6) & 1) == 1) features.Add(Feature.Recovery);
-            if (((buf[19] >> 7) & 1) == 1) features.Add(Feature.OnDragTwo);
+            if ((buf[19] & 1) == 1) features.Add(Feature.InputSourceSettings);
+            if (((buf[19] >> 1) & 1) == 1) features.Add(Feature.VolumeSettings);
+            if (((buf[19] >> 2) & 1) == 1) features.Add(Feature.DragonSound);
+            if (((buf[19] >> 3) & 1) == 1) features.Add(Feature.AmbientLightTimingOffSettings);
+            if (((buf[19] >> 4) & 1) == 1) features.Add(Feature.MusicInfo);
+            if (((buf[19] >> 5) & 1) == 1) features.Add(Feature.Pressure);
+            if (((buf[19] >> 6) & 1) == 1) features.Add(Feature.Touch);
+            if (((buf[19] >> 7) & 1) == 1) features.Add(Feature.AmbientLight);
         }
         
         if (buf.Length > 20) {
-            if ((buf[20] & 1) == 1) features.Add(Feature.TimeCalibration);
-            if (((buf[20] >> 1) & 1) == 1) features.Add(Feature.FastCharge);
-            if (((buf[20] >> 2) & 1) == 1) features.Add(Feature.DenoiseMode);
-            if (((buf[20] >> 3) & 1) == 1) features.Add(Feature.Study);
-            if (((buf[20] >> 4) & 1) == 1) features.Add(Feature.SmartLight);
-            if (((buf[20] >> 5) & 1) == 1) features.Add(Feature.BeepSet);
+            if ((buf[20] & 1) == 1) features.Add(Feature.SoundSpace);
+            if (((buf[20] >> 1) & 1) == 1) features.Add(Feature.PromptToneSettings);
+            if (((buf[20] >> 2) & 1) == 1) features.Add(Feature.HiRes);
+            if (((buf[20] >> 3) & 1) == 1) features.Add(Feature.Button);
+            if (((buf[20] >> 4) & 1) == 1) features.Add(Feature.HearingProtection);
+            if (((buf[20] >> 5) & 1) == 1) features.Add(Feature.TimeCalibration);
+            if (((buf[20] >> 6) & 1) == 1) features.Add(Feature.Recovery);
+            if (((buf[20] >> 7) & 1) == 1) features.Add(Feature.OnDragTwo);
         }
         
         if (buf.Length > 21) {
-            if ((buf[21] & 1) == 1) features.Add(Feature.HdAudioCodec);
-            if (((buf[21] >> 7) & 1) == 1) features.Add(Feature.Allow192K);
+            if ((buf[21] & 1) == 1) features.Add(Feature.TimeCalibration);
+            if (((buf[21] >> 1) & 1) == 1) features.Add(Feature.FastCharge);
+            if (((buf[21] >> 2) & 1) == 1) features.Add(Feature.DenoiseMode);
+            if (((buf[21] >> 3) & 1) == 1) features.Add(Feature.Study);
+            if (((buf[21] >> 4) & 1) == 1) features.Add(Feature.SmartLight);
+            if (((buf[21] >> 5) & 1) == 1) features.Add(Feature.BeepSet);
         }
         
         if (buf.Length > 22) {
-            if ((buf[22] & 1) == 1) features.Add(Feature.SavingMode);
-            if (((buf[22] >> 1) & 1) == 1) features.Add(Feature.Microphone);
-            if (((buf[22] >> 4) & 1) == 1) features.Add(Feature.LineHiRes);
-            if (((buf[22] >> 6) & 1) == 1) features.Add(Feature.LanSwitch);
+            if ((buf[22] & 1) == 1) features.Add(Feature.HdAudioCodec);
+            if (((buf[22] >> 7) & 1) == 1) features.Add(Feature.Allow192K);
+        }
+        
+        if (buf.Length > 23) {
+            if ((buf[23] & 1) == 1) features.Add(Feature.SavingMode);
+            if (((buf[23] >> 1) & 1) == 1) features.Add(Feature.Microphone);
+            if (((buf[23] >> 4) & 1) == 1) features.Add(Feature.LineHiRes);
+            if (((buf[23] >> 6) & 1) == 1) features.Add(Feature.LanSwitch);
         }
         
         Features = features.ToArray();
@@ -168,8 +168,16 @@ public class SupportData : IPacketData {
     /// <param name="type">Packet Type</param>
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
-    public byte[] Serialize(PacketType type, SupportData support)
+    public byte[] Serialize(PacketType type, SupportData? support)
         => throw new NotImplementedException();
+
+    /// <summary>
+    /// Does device support feature
+    /// </summary>
+    /// <param name="feature">Feature</param>
+    /// <returns>True if supports</returns>
+    public bool Supports(Feature feature)
+        => Features.Contains(feature);
 }
 
 /// <summary>

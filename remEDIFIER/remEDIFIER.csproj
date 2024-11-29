@@ -37,14 +37,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Assets/products.json">
-            <LogicalName>products.json</LogicalName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Assets/font.ttf">
-            <LogicalName>font.ttf</LogicalName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Assets/logo.png">
-            <LogicalName>logo.png</LogicalName>
+        <EmbeddedResource Include="Assets\*">
+            <LogicalName>%(FileName)%(Extension)</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
 
