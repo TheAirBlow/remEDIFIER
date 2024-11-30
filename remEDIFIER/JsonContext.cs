@@ -3,7 +3,9 @@ using remEDIFIER.Widgets;
 
 namespace remEDIFIER; 
 
-[JsonSourceGenerationOptions(WriteIndented = true, IncludeFields = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSourceGenerationOptions(WriteIndented = true,
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    Converters = [ typeof(JsonStringEnumConverter) ])]
 [JsonSerializable(typeof(DeviceNameWidget))]
 [JsonSerializable(typeof(EqualizerWidget))]
 [JsonSerializable(typeof(Configuration))]
