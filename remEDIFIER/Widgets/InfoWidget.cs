@@ -2,6 +2,7 @@ using ImGuiNET;
 using Raylib_ImGui;
 using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
+using remEDIFIER.Windows;
 
 namespace remEDIFIER.Widgets;
 
@@ -17,11 +18,6 @@ public class InfoWidget : IWidget {
         Feature.ManualShutdown, Feature.Disconnect, Feature.DeviceResetSettings, 
         Feature.GetMacAddress
     ];
-    
-    /// <summary>
-    /// Device name
-    /// </summary>
-    private string? _deviceName;
     
     /// <summary>
     /// Mac address
@@ -41,35 +37,35 @@ public class InfoWidget : IWidget {
     /// <summary>
     /// Render widget with ImGui
     /// </summary>
-    /// <param name="client">Edifier client</param>
+    /// <param name="window">Device window</param>
     /// <param name="renderer">ImGui renderer</param>
-    public void Render(EdifierClient client, ImGuiRenderer renderer) {
-        ImGui.SeparatorText(_deviceName ?? "(loading)");
+    public void Render(DeviceWindow window, ImGuiRenderer renderer) {
+        ImGui.SeparatorText("Basic information");
         ImGui.TextUnformatted($"Firmware version: {_version ?? "(loading)"}");
         ImGui.TextUnformatted($"MAC address: {_macAddress ?? "(loading)"}");
         ImGui.TextUnformatted($"Battery charge: {_battery ?? "(loading)"}");
         var sameLine = false;
-        if (client.Support!.Supports(Feature.RePair)) {
+        if (window.Client.Support!.Supports(Feature.RePair)) {
             if (ImGui.Button("Re-pair"))
-                client.Send(PacketType.RePair, wait: false);
+                window.Client.Send(PacketType.RePair, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (client.Support!.Supports(Feature.ManualShutdown)) {
+        if (window.Client.Support!.Supports(Feature.ManualShutdown)) {
             if (ImGui.Button("Shutdown"))
-                client.Send(PacketType.Shutdown, wait: false);
+                window.Client.Send(PacketType.Shutdown, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (client.Support!.Supports(Feature.Disconnect)) {
+        if (window.Client.Support!.Supports(Feature.Disconnect)) {
             if (ImGui.Button("Disconnect"))
-                client.Send(PacketType.Disconnect, wait: false);
+                window.Client.Send(PacketType.Disconnect, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (client.Support!.Supports(Feature.DeviceResetSettings)) {
+        if (window.Client.Support!.Supports(Feature.DeviceResetSettings)) {
             if (ImGui.Button("Factory Reset"))
-                client.Send(PacketType.FactoryReset, wait: false);
+                window.Client.Send(PacketType.FactoryReset, wait: false);
             sameLine = true;
         }
     }
@@ -77,19 +73,17 @@ public class InfoWidget : IWidget {
     /// <summary>
     /// Process a received packet
     /// </summary>
+    /// <param name="window">Window</param>
     /// <param name="type">Type</param>
     /// <param name="data">Data</param>
     /// <returns>True if processed</returns>
-    public bool PacketReceived(PacketType type, IPacketData? data) {
+    public bool PacketReceived(DeviceWindow window, PacketType type, IPacketData? data) {
         switch (type) {
             case PacketType.GetBattery:
                 _battery = $"{(int)((ByteData)data!).Value}%";
                 return true;
             case PacketType.GetMacAddress:
                 _macAddress = ((MacAddressData)data!).Value;
-                return true;
-            case PacketType.GetDeviceName:
-                _deviceName = ((StringData)data!).Value;
                 return true;
             case PacketType.GetFirmwareVersion:
                 _version = ((VersionData)data!).Version.ToString();

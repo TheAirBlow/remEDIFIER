@@ -46,6 +46,7 @@ public class SupportData : IPacketData {
         var features = new List<Feature>();
         if (buf.Length > 0) {
             AncValue = new ANCValue((byte)(buf[0] & 15));
+            if (AncValue.Supported) features.Add(Feature.ActiveNoiseCancellation);
             if (((buf[0] >> 5) & 1) == 1) features.Add(Feature.RightChannel);
             if (((buf[0] >> 6) & 1) == 1) features.Add(Feature.PeerHeadphones);
             if (((buf[0] >> 7) & 1) == 1) features.Add(Feature.TwsHeadphones);
@@ -80,7 +81,10 @@ public class SupportData : IPacketData {
             if (((buf[12] >> 7) & 1) == 1) features.Add(Feature.VoiceSwitch);
         }
 
-        if (buf.Length > 13) EqualizerValue = new EqualizerValue(buf[13]);
+        if (buf.Length > 13) {
+            EqualizerValue = new EqualizerValue(buf[13]);
+            if (EqualizerValue.Supported) features.Add(Feature.Equalizer);
+        }
         if (buf.Length > 14) {
             if ((buf[14] & 1) == 1) features.Add(Feature.OnShake);
             if (((buf[14] >> 1) & 1) == 1) features.Add(Feature.OffShake);
@@ -184,6 +188,8 @@ public class SupportData : IPacketData {
 /// Features enum
 /// </summary>
 public enum Feature {
+    ActiveNoiseCancellation,
+    Equalizer,
     RightChannel,
     PeerHeadphones,
     TwsHeadphones,

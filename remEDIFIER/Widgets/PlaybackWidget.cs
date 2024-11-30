@@ -2,6 +2,7 @@ using ImGuiNET;
 using Raylib_ImGui;
 using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
+using remEDIFIER.Windows;
 
 namespace remEDIFIER.Widgets;
 
@@ -28,45 +29,45 @@ public class PlaybackWidget : IWidget {
     /// Song name
     /// </summary>
     private string? _song;
-
     /// <summary>
     /// Render widget with ImGui
     /// </summary>
-    /// <param name="client">Edifier client</param>
+    /// <param name="window">Device window</param>
     /// <param name="renderer">ImGui renderer</param>
-    public void Render(EdifierClient client, ImGuiRenderer renderer) {
+    public void Render(DeviceWindow window, ImGuiRenderer renderer) {
         ImGui.SeparatorText("Playback controls");
         ImGui.TextUnformatted(_state == AVCRPState.Playing
             ? _song != null 
                 ? $"Playing {_author} - {_song}" 
                 : "Song title is not available"
             : "Currently not playing anything");
-        if (ImGui.Button("Previous")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Previous")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.Previous }, wait: false);
         ImGui.SameLine();
-        if (ImGui.Button("Next")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Next")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.Next }, wait: false);
         ImGui.SameLine();
-        if (ImGui.Button("Play")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Play")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.Play }, wait: false);
         ImGui.SameLine();
-        if (ImGui.Button("Pause")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Pause")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.Pause }, wait: false);
         ImGui.SameLine();
-        if (ImGui.Button("Vol -")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Vol -")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.VolumeDown }, wait: false);
         ImGui.SameLine();
-        if (ImGui.Button("Vol +")) client.Send(PacketType.AVCRPCommand, 
+        if (ImGui.Button("Vol +")) window.Client.Send(PacketType.AVCRPCommand, 
             new AVCRPCommandData { Command = AVCRPCommand.VolumeUp }, wait: false);
     }
 
     /// <summary>
     /// Process a received packet
     /// </summary>
+    /// <param name="window">Window</param>
     /// <param name="type">Type</param>
     /// <param name="data">Data</param>
     /// <returns>True if processed</returns>
-    public bool PacketReceived(PacketType type, IPacketData? data) {
+    public bool PacketReceived(DeviceWindow window, PacketType type, IPacketData? data) {
         switch (type) {
             case PacketType.AVCRPState:
                 _state = ((AVCRPStateData)data!).State;

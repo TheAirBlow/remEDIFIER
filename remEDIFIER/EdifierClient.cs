@@ -20,6 +20,11 @@ public class EdifierClient {
     private IBluetooth? _bluetooth;
     
     /// <summary>
+    /// Device info
+    /// </summary>
+    private DeviceInfo? _info;
+    
+    /// <summary>
     /// Support data if available
     /// </summary>
     public SupportData? Support { get; private set; }
@@ -54,6 +59,9 @@ public class EdifierClient {
     /// </summary>
     /// <param name="info">Device Info</param>
     public void Connect(DeviceInfo info) {
+        _info = info;
+        Log.Information("Connecting to {0} ({1}, BLE: {2})",
+            info.DeviceName, info.MacAddress, info.IsLowEnergyDevice);
         if (_bluetooth != null) throw new InvalidOperationException("Connection is already in progress");
         if (Connected) throw new InvalidOperationException("Device is already connected");
         if (info.IsLowEnergyDevice) {
@@ -77,7 +85,11 @@ public class EdifierClient {
     /// </summary>
     public void Disconnect() {
         if (!Connected) return;
+        Log.Information("Disconnected from {0} ({1}, BLE: {2})",
+            _info!.DeviceName, _info.MacAddress, _info.IsLowEnergyDevice);
+        Connected = false;
         _bluetooth!.Disconnect();
+        _bluetooth = null;
     }
     
     /// <summary>
@@ -89,7 +101,6 @@ public class EdifierClient {
             new Thread(() => DeviceConnected?.Invoke()).Start();
         };
         _bluetooth.DeviceDisconnected += () => {
-            Connected = false; _bluetooth = null;
             new Thread(() => DeviceDisconnected?.Invoke()).Start();
         };
         _bluetooth.ErrorOccured += (err, code) => {
@@ -98,7 +109,7 @@ public class EdifierClient {
         };
         _bluetooth.DataReceived += buf => {
             var (type, data) = Packet.Deserialize(buf, Support);
-            Log.Information("Received {0}, data: {1}", type, Convert.ToHexString(buf[3..^2]));
+            Log.Information("Received {0} with payload {1}", type, Convert.ToHexString(buf[3..^2]));
             if (type == PacketType.GetSupportedFeatures) Support = (SupportData)data!;
             var target = _packets.FirstOrDefault(x => x.Type == type && !x.Received);
             if (target == null) {
@@ -111,6 +122,18 @@ public class EdifierClient {
     }
 
     /// <summary>
+    /// Sends a raw packet
+    /// </summary>
+    /// <param name="buf">Buffer</param>
+    /// <returns>Packet data</returns>
+    public void Send(byte[] buf) {
+        if (!Connected) throw new InvalidOperationException("No device is connected");
+        Log.Information(buf.Length > 5 ? "Sent {0} with payload {1}" : "Sent {0} without payload", 
+            (PacketType)buf[2], Convert.ToHexString(buf[3..^2]));
+        _bluetooth!.Write(buf);
+    }
+    
+    /// <summary>
     /// Sends a packet and reads the response
     /// </summary>
     /// <param name="type">Packet Type</param>
@@ -120,7 +143,10 @@ public class EdifierClient {
     /// <returns>Packet data</returns>
     public IPacketData? Send(PacketType type, IPacketData? data = null, bool notify = false, bool wait = true) {
         if (!Connected) throw new InvalidOperationException("No device is connected");
-        _bluetooth!.Write(Packet.Serialize(type, Support, data));
+        var buf = Packet.Serialize(type, Support, data);
+        _bluetooth!.Write(buf);
+        Log.Information(buf.Length > 5 ? "Sent {0} with payload {1}" : "Sent {0} without payload", 
+            type, Convert.ToHexString(buf[3..^2]));
         if (!wait) return null;
         var wrapper = new PacketWrapper { Type = type };
         _packets.Add(wrapper);

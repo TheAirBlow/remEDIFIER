@@ -28,19 +28,24 @@ public class DiscoveryWindow : GuiWindow {
     private readonly List<DiscoveredDevice> _discovered = [];
 
     /// <summary>
-    /// Selected discovered device
+    /// Devices we are connecting or connected to
     /// </summary>
-    private DiscoveredDevice? _selectedDevice;
+    public List<string> Connected { get; } = [];
 
     /// <summary>
     /// ImGui renderer instance
     /// </summary>
-    private readonly ImGuiRenderer _renderer;
+    public ImGuiRenderer Renderer { get; }
     
     /// <summary>
     /// Is bluetooth available
     /// </summary>
     private bool _bluetoothAvailable;
+    
+    /// <summary>
+    /// Selected discovered device
+    /// </summary>
+    private string _selectedDevice = "";
     
     /// <summary>
     /// Is currently discovering
@@ -52,11 +57,11 @@ public class DiscoveryWindow : GuiWindow {
     /// </summary>
     /// <param name="renderer">ImGui renderer</param>
     public DiscoveryWindow(ImGuiRenderer renderer) {
-        _renderer = renderer;
+        Renderer = renderer;
         _discovery.DiscoveryFinished += () => {
             if (!_discovering) return;
             _discovered.Clear();
-            _selectedDevice = null;
+            _selectedDevice = "";
             _discovery.StartDiscovery();
         };
 
@@ -98,13 +103,17 @@ public class DiscoveryWindow : GuiWindow {
                     ImGui.BeginGroup();
                     ImGui.Image(device.Icon, new Vector2(24, 24));
                     ImGui.SameLine();
-                    if (ImGui.Selectable(device.DisplayName, _selectedDevice == device))
-                        _selectedDevice = device;
+                    ImGui.BeginDisabled(Connected.Contains(device.Info.MacAddress));
+                    if (ImGui.Selectable(device.DisplayName, _selectedDevice == device.Info.MacAddress))
+                        _selectedDevice = device.Info.MacAddress;
+                    ImGui.EndDisabled();
                     ImGui.EndGroup();
                 }
-                ImGui.BeginDisabled(_selectedDevice == null);
+                ImGui.BeginDisabled(
+                    _discovered.All(x => x.Info.MacAddress != _selectedDevice) ||
+                    Connected.Contains(_selectedDevice));
                 if (ImGui.Button("Connect"))
-                    Connect(_selectedDevice!);
+                    Connect(_discovered.First(x => x.Info.MacAddress == _selectedDevice));
                 ImGui.EndDisabled();
             } else {
                 ImGui.Text("Bluetooth is not available!");
@@ -120,7 +129,7 @@ public class DiscoveryWindow : GuiWindow {
     /// </summary>
     private void AutoConnect() {
         foreach (var device in _discovered.OrderBy(x => !x.Info.IsLowEnergyDevice)
-                     .Where(x => Config.ConnectedToBefore.Contains(x.Info.MacAddress))) {
+                     .Where(x => !Connected.Contains(x.Info.MacAddress) && Config.Devices.Any(y => x.Info.MacAddress == y.MacAddress && y.AutoConnect))) {
             if ((!Config.AutoConnectOverClassic || device.Info.IsLowEnergyDevice)
                 && (!Config.AutoConnectOverLowEnergy || !device.Info.IsLowEnergyDevice)) continue;
             Log.Information("Found device for automatic connection");
@@ -133,8 +142,8 @@ public class DiscoveryWindow : GuiWindow {
     /// Connects to a device
     /// </summary>
     private void Connect(DiscoveredDevice device) {
-        Log.Information("Connecting to {0} ({1}, BLE: {2})", device.Info.DeviceName, device.Info.MacAddress, device.Info.IsLowEnergyDevice);
-        _renderer?.OpenWindow(new DeviceWindow(_renderer, device.Info, device.DisplayName));
+        Renderer.OpenWindow(new DeviceWindow(this, device.Info, device.DisplayName));
+        Connected.Add(device.Info.MacAddress);
     }
 
     /// <summary>

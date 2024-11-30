@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace remEDIFIER.Protocol.Values;
 
 /// <summary>
@@ -29,8 +31,7 @@ public class ANCValue {
     /// </summary>
     /// <param name="value">Value</param>
     public ANCValue(byte value) {
-        if (!_valueMapping.TryGetValue(value, out var types))
-            throw new ArgumentOutOfRangeException(nameof(value), "Unknown ANC value specified");
+        if (!_valueMapping.TryGetValue(value, out var types)) types = [];
         Names = types.Select(x => _nameMapping[x]).ToArray();
         Value = value; Modes = types;
     }
@@ -42,9 +43,9 @@ public class ANCValue {
     /// <returns>Index</returns>
     public byte Map(ANCMode mode) {
         var index = Array.IndexOf(Modes, mode);
-        if (index == -1) throw new ArgumentOutOfRangeException(nameof(mode),
-            "Specified ANC mode is not supported by current headset");
-        return (byte)index;
+        if (index != -1) return (byte)index;
+        Log.Warning("ANC mode {0} is not supported", mode);
+        return 0xFF;
     }
     
     /// <summary>
@@ -53,9 +54,9 @@ public class ANCValue {
     /// <param name="index">Index</param>
     /// <returns>ANC mode</returns>
     public ANCMode Map(byte index) {
-        if (index >= Modes.Length) throw new ArgumentOutOfRangeException(nameof(index),
-            "Specified index is not supported by current headset");
-        return Modes[index];
+        if (index < Modes.Length) return Modes[index];
+        Log.Warning("Unknown ANC value: {0:X2}", index);
+        return ANCMode.Unknown;
     }
 
     /// <summary>
@@ -103,5 +104,6 @@ public enum ANCMode {
     NoiseCancellation,
     WindReduction, // TODO: find out how to specify values
     AmbientNoise,
+    Unknown,
     Normal
 }

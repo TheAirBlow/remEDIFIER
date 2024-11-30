@@ -44,7 +44,7 @@ public static class Packet {
         buf[0] = 0xAA;
         buf[1] = (byte)(dataBuf.Length + 1);
         buf[2] = (byte)type;
-        Signature(buf);
+        Sign(buf);
         return buf;
     }
 
@@ -57,11 +57,11 @@ public static class Packet {
     public static (PacketType, IPacketData?) Deserialize(byte[] buf, SupportData? support = null) {
         if (buf.Length < 5) throw new ArgumentOutOfRangeException(
             nameof(buf), "There must be at least 5 bytes in a packet");
-        if (buf[0] != 0xBB) throw new ArgumentOutOfRangeException(
-            nameof(buf), $"Invalid packet header, expected BB but found {buf[0]:X2}");
+        if (buf[0] != 0xBB && buf[0] != 0xCC) throw new ArgumentOutOfRangeException(
+            nameof(buf), $"Invalid packet header, expected BB or CC but found {buf[0]:X2}");
         if (buf.Length != buf[1] + 4) throw new ArgumentOutOfRangeException(
             nameof(buf), $"Invalid packet length, expected {buf[1] + 4} but found {buf.Length}");
-        Signature(buf, true);
+        Sign(buf, true);
         var type = (PacketType)buf[2];
         _mapping.TryGetValue(type, out var data);
         if (data == null) return (type, data);
@@ -76,7 +76,7 @@ public static class Packet {
     /// </summary>
     /// <param name="buf">Buffer</param>
     /// <param name="verify">Verify</param>
-    private static void Signature(byte[] buf, bool verify = false) {
+    public static void Sign(byte[] buf, bool verify = false) {
         ushort sum = 8217;
         for (var i = 0; i < buf.Length - 2; i++)
             sum += buf[i];

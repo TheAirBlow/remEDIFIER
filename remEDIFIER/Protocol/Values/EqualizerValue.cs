@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace remEDIFIER.Protocol.Values;
 
 /// <summary>
@@ -15,7 +17,7 @@ public class EqualizerValue {
     public EqualizerPreset[] Presets { get; set; }
     
     /// <summary>
-    /// Array of equalizer presets names
+    /// Array of equalizer preset names
     /// </summary>
     public string[] Names { get; set; }
     
@@ -40,10 +42,11 @@ public class EqualizerValue {
     /// <param name="preset">Preset</param>
     /// <returns>Index</returns>
     public byte Map(EqualizerPreset preset) {
+        if (preset == EqualizerPreset.Disable) return 0xFF;
         var index = Array.IndexOf(Presets, preset);
-        if (index == -1) throw new ArgumentOutOfRangeException(nameof(preset),
-            "Specified equalizer preset is not supported by current headset");
-        return (byte)index;
+        if (index != -1) return (byte)index;
+        Log.Warning("Equalizer preset {0} is not supported", preset);
+        return 0xFF;
     }
     
     /// <summary>
@@ -52,9 +55,10 @@ public class EqualizerValue {
     /// <param name="index">Index</param>
     /// <returns>Preset</returns>
     public EqualizerPreset Map(byte index) {
-        if (index >= Presets.Length) throw new ArgumentOutOfRangeException(nameof(index),
-            "Specified index is not supported by current headset");
-        return Presets[index];
+        if (index == 0xFF) return EqualizerPreset.Disable;
+        if (index < Presets.Length) return Presets[index];
+        Log.Warning("Unknown equalizer preset: {0:X2}", index);
+        return EqualizerPreset.Unknown;
     }
 
     /// <summary>
@@ -62,7 +66,7 @@ public class EqualizerValue {
     /// </summary>
     private readonly Dictionary<byte, EqualizerPreset[]> _valueMapping = new() {
         [0x00] = [],
-        [0x01] = [EqualizerPreset.Classic, EqualizerPreset.Pop, EqualizerPreset.Classical, EqualizerPreset.Rock],
+        [0x01] = [EqualizerPreset.Classic, EqualizerPreset.Pop, EqualizerPreset.Classical, EqualizerPreset.Rock, EqualizerPreset.Disable],
         [0x02] = [EqualizerPreset.Classic, EqualizerPreset.Pop, EqualizerPreset.Classical, EqualizerPreset.Rock, EqualizerPreset.Rock, EqualizerPreset.Rock],
         [0x03] = [EqualizerPreset.Classic, EqualizerPreset.Pop, EqualizerPreset.Rock],
         [0x04] = [EqualizerPreset.Classic, EqualizerPreset.Pop, EqualizerPreset.Classical, EqualizerPreset.Rock, EqualizerPreset.Customized],
@@ -115,7 +119,9 @@ public class EqualizerValue {
         [EqualizerPreset.Bassy] = "Bassy",
         [EqualizerPreset.Popular] = "Popular",
         [EqualizerPreset.Dyzj] = "DYZJ",
-        [EqualizerPreset.Original] = "Original"
+        [EqualizerPreset.Original] = "Original",
+        [EqualizerPreset.Unknown] = "Unknown",
+        [EqualizerPreset.Disable] = "Disable"
     };
 }
 
@@ -125,5 +131,6 @@ public class EqualizerValue {
 public enum EqualizerPreset {
     Classic, Classical, Pop, Rock, Customized, Surround, Game, 
     Dynamic, HiFi, Stax, Monitor, Vocal, Music, Gyzq, Theatre,
-    Movie, Electrostatic, Bassy, Popular, Dyzj, Original
+    Movie, Electrostatic, Bassy, Popular, Dyzj, Original, 
+    Disable, Unknown
 }

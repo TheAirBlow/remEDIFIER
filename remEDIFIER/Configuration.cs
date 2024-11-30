@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Serilog;
 
 namespace remEDIFIER; 
@@ -47,13 +48,38 @@ public class Configuration {
     public bool AutoConnectOverClassic { get; set; } = true;
 
     /// <summary>
-    /// A list of devices mac addresses that user has connected to manually before
+    /// A list of devices hat user has connected to before
     /// </summary>
-    public List<string> ConnectedToBefore { get; set; } = [];
+    public List<Device> Devices { get; set; } = [];
     
     /// <summary>
     /// Save configuration changes
     /// </summary>
     public void Save() => File.WriteAllText("config.json", 
         JsonSerializer.Serialize(Config, JsonContext.Default.Configuration));
+
+    /// <summary>
+    /// Device configuration
+    /// </summary>
+    public class Device {
+        /// <summary>
+        /// Bluetooth MAC address
+        /// </summary>
+        public string MacAddress { get; set; } = "";
+        
+        /// <summary>
+        /// Is automatic connection allowed for this device
+        /// </summary>
+        public bool AutoConnect { get; set; }
+        
+        /// <summary>
+        /// Should settings be automatically restored
+        /// </summary>
+        public bool RestoreSettings { get; set; }
+
+        /// <summary>
+        /// List of serialized widgets
+        /// </summary>
+        public Dictionary<string, JsonObject> Widgets { get; set; } = new();
+    }
 }
