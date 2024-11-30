@@ -41,9 +41,12 @@ public class InfoWidget : IWidget {
     /// <param name="renderer">ImGui renderer</param>
     public void Render(DeviceWindow window, ImGuiRenderer renderer) {
         ImGui.SeparatorText("Basic information");
-        ImGui.TextUnformatted($"Firmware version: {_version ?? "(loading)"}");
-        ImGui.TextUnformatted($"MAC address: {_macAddress ?? "(loading)"}");
-        ImGui.TextUnformatted($"Battery charge: {_battery ?? "(loading)"}");
+        if (window.Client.Support!.Supports(Feature.GetFirmwareVersion))
+            ImGui.TextUnformatted($"Firmware version: {_version ?? "(loading)"}");
+        if (window.Client.Support!.Supports(Feature.GetMacAddress))
+            ImGui.TextUnformatted($"MAC address: {_macAddress ?? "(loading)"}");
+        if (window.Client.Support!.Supports(Feature.ShowBattery))
+            ImGui.TextUnformatted($"Battery charge: {_battery ?? "(loading)"}");
         var sameLine = false;
         if (window.Client.Support!.Supports(Feature.RePair)) {
             if (ImGui.Button("Re-pair"))
@@ -91,5 +94,18 @@ public class InfoWidget : IWidget {
             default:
                 return false;
         }
+    }
+    
+    /// <summary>
+    /// Sends all the packets necessary
+    /// </summary>
+    /// <param name="window">Window</param>
+    public void ReadSettings(DeviceWindow window) {
+        if (window.Client.Support!.Supports(Feature.GetFirmwareVersion))
+            window.Client.Send(PacketType.GetFirmwareVersion, notify: true);
+        if (window.Client.Support!.Supports(Feature.GetMacAddress))
+            window.Client.Send(PacketType.GetMacAddress, notify: true);
+        if (window.Client.Support!.Supports(Feature.ShowBattery))
+            window.Client.Send(PacketType.GetBattery, notify: true);
     }
 }

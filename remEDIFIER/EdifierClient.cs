@@ -22,7 +22,7 @@ public class EdifierClient {
     /// <summary>
     /// Device info
     /// </summary>
-    private DeviceInfo? _info;
+    public DeviceInfo? Info { get; private set; }
     
     /// <summary>
     /// Support data if available
@@ -53,13 +53,14 @@ public class EdifierClient {
     /// Error occured event
     /// </summary>
     public event IBluetooth.ErrorDelegate? ErrorOccured;
-    
+
     /// <summary>
     /// Connects to an edifier device
     /// </summary>
     /// <param name="info">Device Info</param>
-    public void Connect(DeviceInfo info) {
-        _info = info;
+    /// <param name="adapter">Adapter</param>
+    public void Connect(DeviceInfo info, BluetoothAdapter adapter) {
+        Info = info;
         Log.Information("Connecting to {0} ({1}, BLE: {2})",
             info.DeviceName, info.MacAddress, info.IsLowEnergyDevice);
         if (_bluetooth != null) throw new InvalidOperationException("Connection is already in progress");
@@ -70,8 +71,9 @@ public class EdifierClient {
             var valid = info.ServiceUuids!.FirstOrDefault(x => Product.Products.Any(y => y.ProductSearchUuid == x));
             if (valid == null) throw new InvalidDataException($"{info.DeviceName} is not an Edifier product");
             var product = Product.Products.First(x => x.ProductSearchUuid == valid);
-            lowEnergy.Connect(info.MacAddress, product.ProductServiceUuid, 
-                product.ProductWriteUuid, product.ProductReadUuid);
+            lowEnergy.Connect(adapter.AdapterAddress!, info.MacAddress, 
+                product.ProductServiceUuid, product.ProductWriteUuid,
+                product.ProductReadUuid);
             return;
         }
 
@@ -84,11 +86,11 @@ public class EdifierClient {
     /// Disconnects from current device
     /// </summary>
     public void Disconnect() {
-        if (!Connected) return;
+        if (_bluetooth == null) return;
         Log.Information("Disconnected from {0} ({1}, BLE: {2})",
-            _info!.DeviceName, _info.MacAddress, _info.IsLowEnergyDevice);
+            Info!.DeviceName, Info.MacAddress, Info.IsLowEnergyDevice);
         Connected = false;
-        _bluetooth!.Disconnect();
+        _bluetooth.Disconnect();
         _bluetooth = null;
     }
     
@@ -101,10 +103,12 @@ public class EdifierClient {
             new Thread(() => DeviceConnected?.Invoke()).Start();
         };
         _bluetooth.DeviceDisconnected += () => {
+            Log.Information("Disconnected from {0} ({1}, BLE: {2})",
+                Info!.DeviceName, Info.MacAddress, Info.IsLowEnergyDevice);
             new Thread(() => DeviceDisconnected?.Invoke()).Start();
         };
         _bluetooth.ErrorOccured += (err, code) => {
-            Disconnect();
+            Log.Information("Disconnected with error {0} ({1})", err, code);
             new Thread(() => ErrorOccured?.Invoke(err, code)).Start();
         };
         _bluetooth.DataReceived += buf => {

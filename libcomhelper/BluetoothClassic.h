@@ -8,7 +8,7 @@
 class BluetoothClassic : public QObject {
     Q_OBJECT
 
-public:
+public slots:
     void beginConnect(const char* address){
         socket = new QBluetoothSocket(QBluetoothServiceInfo::RfcommProtocol, this);
         connect(socket, &QBluetoothSocket::stateChanged, this, &BluetoothClassic::onStateChanged);
@@ -18,9 +18,9 @@ public:
     }
 
     void beginDisconnect() {
+        resetCallbacks();
         socket->disconnectFromService();
         socket->close();
-        if (disconnectedCallback) disconnectedCallback();
     }
 
     void write(const char* data, uint32_t length) {
@@ -36,20 +36,27 @@ private slots:
         }
 
         if (state == QBluetoothSocket::UnconnectedState){
+            if (disconnectedCallback) disconnectedCallback();
             beginDisconnect();
         }
     }
 
     void onErrorOccurred() {
+        if (errorCallback) errorCallback(strdup(socket->errorString().toLocal8Bit().data()), socket->error());
         beginDisconnect();
-        if (!errorCallback) return;
-        errorCallback(strdup(socket->errorString().toLocal8Bit().data()), socket->error());
     }
 
     void onDataReceived() {
-        if (!dataCallback) return;
         QByteArray value = socket->readAll();
-        dataCallback(strdup(value.data()), value.length());
+        if (!dataCallback) return;
+        dataCallback(value.data(), value.length());
+    }
+
+    void resetCallbacks() {
+        disconnectedCallback = nullptr;
+        connectedCallback = nullptr;
+        errorCallback = nullptr;
+        dataCallback = nullptr;
     }
 
 private:

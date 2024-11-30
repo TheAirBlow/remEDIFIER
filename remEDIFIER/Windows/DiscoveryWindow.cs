@@ -4,6 +4,8 @@ using ImGuiNET;
 using Raylib_ImGui;
 using Raylib_ImGui.Windows;
 using remEDIFIER.Bluetooth;
+using remEDIFIER.Protocol;
+using remEDIFIER.Protocol.Packets;
 using Serilog;
 
 namespace remEDIFIER.Windows;
@@ -15,7 +17,7 @@ public class DiscoveryWindow : GuiWindow {
     /// <summary>
     /// Bluetooth adapter instance
     /// </summary>
-    private readonly BluetoothAdapter _adapter = new();
+    public BluetoothAdapter Adapter { get; } = new();
 
     /// <summary>
     /// Bluetooth discovery instance
@@ -30,7 +32,7 @@ public class DiscoveryWindow : GuiWindow {
     /// <summary>
     /// Devices we are connecting or connected to
     /// </summary>
-    public List<string> Connected { get; } = [];
+    public Dictionary<string, (EdifierClient, DeviceWindow?)> Connected { get; } = [];
 
     /// <summary>
     /// ImGui renderer instance
@@ -51,6 +53,11 @@ public class DiscoveryWindow : GuiWindow {
     /// Is currently discovering
     /// </summary>
     private bool _discovering;
+
+    /// <summary>
+    /// Was there a successful auto connection
+    /// </summary>
+    private bool _autoConnected;
     
     /// <summary>
     /// Creates a new discovery window
@@ -61,34 +68,35 @@ public class DiscoveryWindow : GuiWindow {
         _discovery.DiscoveryFinished += () => {
             if (!_discovering) return;
             _discovered.Clear();
-            _selectedDevice = "";
+            _autoConnected = false;
             _discovery.StartDiscovery();
         };
 
         _discovery.DeviceDiscovered += info => {
             _discovered.Add(new DiscoveredDevice(info));
-            var connected = _adapter.GetConnectedDevices();
+            if (_autoConnected) return;
+            var connected = Adapter.GetConnectedDevices();
             if (connected.All(x => _discovered.Any(y => y.Info.MacAddress == x)))
                 AutoConnect();
         };
         
-        _adapter.AdapterDisabled += _ => {
+        Adapter.AdapterDisabled += _ => {
             _bluetoothAvailable = false;
             _discovery.StopDiscovery();
         };
         
-        _adapter.AdapterEnabled += _ => {
+        Adapter.AdapterEnabled += _ => {
             _bluetoothAvailable = true; 
             _discovery.StartDiscovery();
             _discovering = true;
         };
         
-        if (_adapter.BluetoothAvailable) {
+        if (Adapter.BluetoothAvailable) {
             _discovery.StartDiscovery();
             _discovering = true;
         }
         
-        _bluetoothAvailable = _adapter.BluetoothAvailable;
+        _bluetoothAvailable = Adapter.BluetoothAvailable;
     }
     
     /// <summary>
@@ -103,15 +111,18 @@ public class DiscoveryWindow : GuiWindow {
                     ImGui.BeginGroup();
                     ImGui.Image(device.Icon, new Vector2(24, 24));
                     ImGui.SameLine();
-                    ImGui.BeginDisabled(Connected.Contains(device.Info.MacAddress));
-                    if (ImGui.Selectable(device.DisplayName, _selectedDevice == device.Info.MacAddress))
+                    var name = device.DisplayName;
+                    var contains = Connected.TryGetValue(device.Info.MacAddress, out var pair);
+                    if (contains && pair.Item2 == null) name += " " + new string('.', (int)ImGui.GetTime() % 3 + 1);
+                    ImGui.BeginDisabled(contains);
+                    if (ImGui.Selectable(name, _selectedDevice == device.Info.MacAddress))
                         _selectedDevice = device.Info.MacAddress;
                     ImGui.EndDisabled();
                     ImGui.EndGroup();
                 }
                 ImGui.BeginDisabled(
                     _discovered.All(x => x.Info.MacAddress != _selectedDevice) ||
-                    Connected.Contains(_selectedDevice));
+                    Connected.ContainsKey(_selectedDevice));
                 if (ImGui.Button("Connect"))
                     Connect(_discovered.First(x => x.Info.MacAddress == _selectedDevice));
                 ImGui.EndDisabled();
@@ -128,12 +139,15 @@ public class DiscoveryWindow : GuiWindow {
     /// Attempts to automatically connect
     /// </summary>
     private void AutoConnect() {
-        foreach (var device in _discovered.OrderBy(x => !x.Info.IsLowEnergyDevice)
-                     .Where(x => !Connected.Contains(x.Info.MacAddress) && Config.Devices.Any(y => x.Info.MacAddress == y.MacAddress && y.AutoConnect))) {
-            if ((!Config.AutoConnectOverClassic || device.Info.IsLowEnergyDevice)
-                && (!Config.AutoConnectOverLowEnergy || !device.Info.IsLowEnergyDevice)) continue;
+        var connected = Adapter.GetConnectedDevices();
+        foreach (var device in _discovered
+                     .Where(x => !Connected.ContainsKey(x.Info.MacAddress) && Config.Devices.Any(y => x.Info.MacAddress == y.MacAddress && y.AutoConnect))
+                     .OrderBy(x => x.Info.IsLowEnergyDevice).ThenByDescending(x => connected.Contains(x.Info.MacAddress))) {
+            if ((device.Info.IsLowEnergyDevice && !Config.AutoConnectOverLowEnergy)
+                || (!device.Info.IsLowEnergyDevice && !Config.AutoConnectOverClassic)) continue;
             Log.Information("Found device for automatic connection");
-            Connect(device);
+            Connect(device, false);
+            _autoConnected = true;
             return;
         }
     }
@@ -141,9 +155,35 @@ public class DiscoveryWindow : GuiWindow {
     /// <summary>
     /// Connects to a device
     /// </summary>
-    private void Connect(DiscoveredDevice device) {
-        Renderer.OpenWindow(new DeviceWindow(this, device.Info, device.DisplayName));
-        Connected.Add(device.Info.MacAddress);
+    /// <param name="device">Device Info</param>
+    /// <param name="manual">Is Manual</param>
+    private void Connect(DiscoveredDevice device, bool manual = true) {
+        var client = new EdifierClient();
+        Connected.Add(device.Info.MacAddress, (client, null));
+        client.DeviceConnected += () => {
+            var data = client.Send(PacketType.GetSupportedFeatures);
+            if (data is not SupportData) {
+                if (manual) Renderer.OpenWindow(new PopupWindow("An error occured", "Failed to receive support data"));
+                client.Disconnect();
+                return;
+            }
+            
+            var window = new DeviceWindow(client, device.DisplayName);
+            Connected[device.Info.MacAddress] = (client, window);
+            Renderer.OpenWindow(window);
+        };
+        client.DeviceDisconnected += () => {
+            if (!Connected.TryGetValue(device.Info.MacAddress, out var pair)) return;
+            if (pair.Item2 != null) pair.Item2.IsOpen = false;
+            Connected.Remove(device.Info.MacAddress);
+        };
+        client.ErrorOccured += (err, code) => {
+            if (manual) Renderer.OpenWindow(new PopupWindow("An error occured", $"{err} ({code})"));
+            if (!Connected.TryGetValue(device.Info.MacAddress, out var pair)) return;
+            if (pair.Item2 != null) pair.Item2.IsOpen = false;
+            Connected.Remove(device.Info.MacAddress);
+        };
+        client.Connect(device.Info, Adapter);
     }
 
     /// <summary>

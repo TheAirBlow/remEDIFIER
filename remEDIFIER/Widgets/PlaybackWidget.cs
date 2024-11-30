@@ -13,7 +13,7 @@ public class PlaybackWidget : IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
-    public Feature[] Features => [ Feature.GetDeviceName ];
+    public Feature[] Features => [  ];
 
     /// <summary>
     /// AVCRP state
@@ -83,5 +83,13 @@ public class PlaybackWidget : IWidget {
             default:
                 return false;
         }
+    }
+    
+    /// <summary>
+    /// Sends all the packets necessary
+    /// </summary>
+    /// <param name="window">Window</param>
+    public void ReadSettings(DeviceWindow window) {
+        window.Client.Send(PacketType.AVCRPState, notify: true);
     }
 }

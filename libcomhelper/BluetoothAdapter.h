@@ -3,6 +3,7 @@
 
 #include <QBluetoothLocalDevice>
 #include <QObject>
+#include <QDebug>
 
 struct ConnectedDevices {
     const char** Addresses;
@@ -16,9 +17,29 @@ typedef void (*AdapterCallback)(const char* address);
 class BluetoothAdapter : public QObject {
     Q_OBJECT
 
-public:
-    BluetoothAdapter() {
-        enumerate();
+private slots:
+    void hostModeStateChanged(QBluetoothLocalDevice::HostMode state) {
+        auto device = (QBluetoothLocalDevice)sender();
+        if (!adapter.isNull() && QString::compare(device.address().toString(), adapter.toString()) != 0) return;
+        if (state == QBluetoothLocalDevice::HostPoweredOff) {
+            adapter = QBluetoothAddress();
+            if (disabledCallback) disabledCallback(strdup(device.address().toString().toLocal8Bit().data()));
+            enumerate(false);
+            return;
+        }
+
+        adapter = device.address();
+        if (enabledCallback) enabledCallback(strdup(device.address().toString().toLocal8Bit().data()));
+    }
+
+public slots:
+    void enumerate(bool shouldConnect = true) {
+        auto devices = QBluetoothLocalDevice::allDevices();
+        for (auto it = devices.cbegin(); it != devices.cend(); ++it) {
+            QBluetoothLocalDevice* dev = new QBluetoothLocalDevice(it->address(), this); // memory leak my balls
+            if (adapter.isNull() && dev->isValid() && dev->hostMode() != QBluetoothLocalDevice::HostPoweredOff) adapter = it->address();
+            if (shouldConnect) connect(dev, &QBluetoothLocalDevice::hostModeStateChanged, this, &BluetoothAdapter::hostModeStateChanged, Qt::UniqueConnection);
+        }
     }
 
     ConnectedDevices* getConnectedDevices() {
@@ -42,31 +63,6 @@ public:
 
     bool isBluetoothAvailable() {
         return !adapter.isNull();
-    }
-
-private:
-    void enumerate() {
-        auto devices = QBluetoothLocalDevice::allDevices();
-        for (auto it = devices.cbegin(); it !=devices.cend(); ++it) {
-            QBluetoothLocalDevice dev(it->address());
-            if (adapter.isNull() && dev.isValid() && dev.hostMode() != QBluetoothLocalDevice::HostPoweredOff) adapter = it->address();
-            connect(&dev, &QBluetoothLocalDevice::hostModeStateChanged, this, &BluetoothAdapter::hostModeStateChanged, Qt::UniqueConnection);
-        }
-    }
-
-private slots:
-    void hostModeStateChanged(QBluetoothLocalDevice::HostMode state) {
-        auto device = (QBluetoothLocalDevice)sender();
-        if (device.address() != adapter) return;
-        if (state == QBluetoothLocalDevice::HostPoweredOff) {
-            adapter = QBluetoothAddress();
-            if (disabledCallback) disabledCallback(strdup(device.address().toString().toLocal8Bit().data()));
-            enumerate();
-            return;
-        }
-
-        adapter = device.address();
-        if (enabledCallback) enabledCallback(strdup(device.address().toString().toLocal8Bit().data()));
     }
 
 private:

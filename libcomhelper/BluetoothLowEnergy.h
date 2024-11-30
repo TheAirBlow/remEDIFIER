@@ -6,6 +6,7 @@
 #include <ApplicationLoop.h>
 #include <QObject>
 #include <QDebug>
+#include <qthread.h>
 
 struct DeviceConnectInfo {
     const char* MacAddress;
@@ -21,25 +22,14 @@ typedef void (*ErrorCallback)(const char* message, int code);
 class BluetoothLowEnergy : public QObject {
     Q_OBJECT
 
-public:
-    BluetoothLowEnergy() {
-        adapter = new BluetoothAdapter();
-        adapter->setParent(this);
-    }
-
-    void beginConnect(const char* macAddress, const char* serviceUuid, const char* writeUuid, const char* readUuid) {
+public slots:
+    void beginConnect(const char* localAddress, const char* macAddress, const char* serviceUuid, const char* writeUuid, const char* readUuid) {
         if (connected) return;
-        auto localAddress = adapter->getAddress();
-        if (localAddress.isNull()) {
-            if (errorCallback) errorCallback("No bluetooth adapter available", -2);
-            return;
-        }
-
         this->device = new DeviceConnectInfo {
             macAddress, serviceUuid, writeUuid, readUuid
         };
         auto address = QString::fromUtf8(this->device->MacAddress);
-        controller = QLowEnergyController::createCentral(QBluetoothAddress(address), localAddress, this);
+        controller = QLowEnergyController::createCentral(QBluetoothAddress(address), QBluetoothAddress(QString::fromUtf8(localAddress)), this);
         connect(controller, &QLowEnergyController::connected, controller, &QLowEnergyController::discoverServices);
         connect(controller, QOverload<QLowEnergyController::Error>::of(&QLowEnergyController::error), this, &BluetoothLowEnergy::onErrorOccurred);
         connect(controller, &QLowEnergyController::serviceDiscovered, this, &BluetoothLowEnergy::onServiceDiscovered);
@@ -47,8 +37,8 @@ public:
     }
 
     void beginDisconnect() {
-        if (!connected) return;
         connected = false;
+        resetCallbacks();
         if (service) {
             if (readCharacteristic.isValid()) {
                 auto desc = readCharacteristic.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
@@ -64,8 +54,6 @@ public:
             controller->deleteLater();
             controller = nullptr;
         }
-
-        if (disconnectedCallback) disconnectedCallback();
     }
 
     void write(const char* data, uint32_t length) {
@@ -124,11 +112,21 @@ private slots:
     void onDataReceived(const QLowEnergyCharacteristic &characteristic, const QByteArray &value) {
         Q_UNUSED(characteristic);
         if (!dataCallback) return;
-        dataCallback(strdup(value.data()), value.length());
+        dataCallback(value.data(), value.length());
     }
 
     void onServiceStateChanged(QLowEnergyService::ServiceState state) {
-        if(state == QLowEnergyService::InvalidService) beginDisconnect();
+        if(state == QLowEnergyService::InvalidService) {
+            if (errorCallback) errorCallback("Invalid BLE service", -3);
+            beginDisconnect();
+        }
+    }
+
+    void resetCallbacks() {
+        disconnectedCallback = nullptr;
+        connectedCallback = nullptr;
+        errorCallback = nullptr;
+        dataCallback = nullptr;
     }
 
 private:
@@ -149,7 +147,7 @@ public:
 
 extern "C" {
 BluetoothLowEnergy* CreateBluetoothLowEnergy();
-void LowEnergyConnect(BluetoothLowEnergy* manager, const char* macAddress, const char* serviceUuid, const char* writeUuid, const char* readUuid);
+void LowEnergyConnect(BluetoothLowEnergy* manager, const char* localAddress, const char* macAddress, const char* serviceUuid, const char* writeUuid, const char* readUuid);
 void LowEnergyDisconnect(BluetoothLowEnergy* manager);
 void SetLowEnergyDisconnectedCallback(BluetoothLowEnergy* manager, GenericCallback callback);
 void SetLowEnergyConnectedCallback(BluetoothLowEnergy* manager, GenericCallback callback);

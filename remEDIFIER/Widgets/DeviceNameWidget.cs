@@ -77,4 +77,12 @@ public class DeviceNameWidget : IWidget {
         var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.DeviceNameWidget)!;
         window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
+
+    /// <summary>
+    /// Sends all the packets necessary
+    /// </summary>
+    /// <param name="window">Window</param>
+    public void ReadSettings(DeviceWindow window) {
+        window.Client.Send(PacketType.GetDeviceName, notify: true);
+    }
 }

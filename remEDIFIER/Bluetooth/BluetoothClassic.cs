@@ -85,9 +85,8 @@ public partial class BluetoothClassic : IBluetooth {
     /// Disconnects from current device
     /// </summary>
     public void Disconnect() {
-        if (!_isConnected) throw new InvalidOperationException(
-            "Agent is not connected to a bluetooth device");
         Disconnect(_wrapper);
+        DisconnectedHandler();
     }
     
     /// <summary>

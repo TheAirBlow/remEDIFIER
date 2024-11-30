@@ -46,7 +46,11 @@ private slots:
     void onDeviceDiscovered(const QBluetoothDeviceInfo& deviceInfo) {
         if (discoveredCallback) {
             QByteArray nameBuf = deviceInfo.name().toLocal8Bit();
+#ifdef Q_OS_MAC
+            QByteArray addressBuf = deviceInfo.deviceUuid().toString().toLocal8Bit();
+#else
             QByteArray addressBuf = deviceInfo.address().toString().toLocal8Bit();
+#endif
             DeviceInfo info{0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
             info.DeviceName = strdup(nameBuf.data());
             info.MacAddress = strdup(addressBuf.data());

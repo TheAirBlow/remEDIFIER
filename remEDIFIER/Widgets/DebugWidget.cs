@@ -52,4 +52,10 @@ public class DebugWidget : IWidget {
     /// <param name="data">Data</param>
     /// <returns>True if processed</returns>
     public bool PacketReceived(DeviceWindow window, PacketType type, IPacketData? data) => false;
+    
+    /// <summary>
+    /// Sends all the packets necessary
+    /// </summary>
+    /// <param name="window">Window</param>
+    public void ReadSettings(DeviceWindow window) { }
 }

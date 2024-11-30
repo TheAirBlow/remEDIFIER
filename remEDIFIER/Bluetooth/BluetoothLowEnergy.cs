@@ -74,24 +74,25 @@ public partial class BluetoothLowEnergy : IBluetooth {
     /// <summary>
     /// Connects to a bluetooth device
     /// </summary>
+    /// <param name="localAddress">Local address</param>
     /// <param name="address">Mac address</param>
     /// <param name="serviceUuid">Service UUID</param>
     /// <param name="writeUuid">Write UUID</param>
     /// <param name="readUuid">Read UUID</param>
-    public void Connect(string address, string serviceUuid, string writeUuid, string readUuid) {
+    public void Connect(string localAddress, string address, string serviceUuid, string writeUuid, string readUuid) {
         if (_isConnected) throw new InvalidOperationException(
             "Agent is already connected to a bluetooth device");
-        Connect(_wrapper, Marshal.StringToHGlobalAuto(address), Marshal.StringToHGlobalAuto(serviceUuid),
-            Marshal.StringToHGlobalAuto(writeUuid), Marshal.StringToHGlobalAuto(readUuid));
+        Connect(_wrapper, Marshal.StringToHGlobalAuto(localAddress), Marshal.StringToHGlobalAuto(address), 
+            Marshal.StringToHGlobalAuto(serviceUuid), Marshal.StringToHGlobalAuto(writeUuid),
+            Marshal.StringToHGlobalAuto(readUuid));
     }
 
     /// <summary>
     /// Disconnects from current device
     /// </summary>
     public void Disconnect() {
-        if (!_isConnected) throw new InvalidOperationException(
-            "Agent is not connected to a bluetooth device");
         Disconnect(_wrapper);
+        DisconnectedHandler();
     }
     
     /// <summary>
@@ -155,7 +156,7 @@ public partial class BluetoothLowEnergy : IBluetooth {
     private static partial IntPtr CreateBluetoothLowEnergy();
     
     [DllImport("comhelper", EntryPoint = "LowEnergyConnect")]
-    private static extern void Connect(IntPtr wrapper, IntPtr address, IntPtr serviceUuid, IntPtr writeUuid, IntPtr readUuid);
+    private static extern void Connect(IntPtr wrapper, IntPtr localAddress, IntPtr address, IntPtr serviceUuid, IntPtr writeUuid, IntPtr readUuid);
     
     [LibraryImport("comhelper", EntryPoint = "LowEnergyDisconnect")]
     private static partial void Disconnect(IntPtr wrapper);

@@ -1,10 +1,13 @@
 #include "BluetoothAdapter.h"
 #include <ApplicationLoop.h>
+#include <qthread.h>
 
 BluetoothAdapter* CreateBluetoothAdapter() {
     auto obj = new BluetoothAdapter();
-    obj->moveToThread(GetMainThread());
-    obj->setParent(GetApplication());
+    QThread* workerThread = new QThread();
+    workerThread->start();
+    obj->moveToThread(workerThread);
+    QMetaObject::invokeMethod(obj, "enumerate", Qt::BlockingQueuedConnection);
     return obj;
 }
 

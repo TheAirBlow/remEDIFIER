@@ -9,8 +9,9 @@
 
 BluetoothDiscovery* CreateDiscovery() {
     auto obj = new BluetoothDiscovery();
-    obj->moveToThread(GetMainThread());
-    obj->setParent(GetApplication());
+    QThread* workerThread = new QThread();
+    workerThread->start();
+    obj->moveToThread(workerThread);
     return obj;
 }
 
