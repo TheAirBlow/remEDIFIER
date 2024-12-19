@@ -67,13 +67,15 @@ public class DiscoveryWindow : GuiWindow {
         Renderer = renderer;
         _discovery.DiscoveryFinished += () => {
             if (!_discovering) return;
-            _discovered.Clear();
+            lock (_discovered)
+                _discovered.Clear();
             _autoConnected = false;
             _discovery.StartDiscovery();
         };
 
         _discovery.DeviceDiscovered += info => {
-            _discovered.Add(new DiscoveredDevice(info));
+            lock(_discovered)
+                _discovered.Add(new DiscoveredDevice(info));
             if (_autoConnected) return;
             var connected = Adapter.GetConnectedDevices();
             if (connected.All(x => _discovered.Any(y => y.Info.MacAddress == x)))
@@ -107,7 +109,9 @@ public class DiscoveryWindow : GuiWindow {
         if (ImGui.Begin($"Bluetooth Discovery ##{ID}", ImGuiWindowFlags.AlwaysAutoResize)) {
             if (_bluetoothAvailable) {
                 ImGui.Text("Select a device to connect to:");
-                foreach (var device in _discovered.ToList()) {
+                List<DiscoveredDevice> discovered;
+                lock (_discovered) discovered = _discovered.ToList();
+                foreach (var device in discovered) {
                     ImGui.BeginGroup();
                     ImGui.Image(device.Icon, new Vector2(24, 24));
                     ImGui.SameLine();
@@ -121,10 +125,10 @@ public class DiscoveryWindow : GuiWindow {
                     ImGui.EndGroup();
                 }
                 ImGui.BeginDisabled(
-                    _discovered.All(x => x.Info.MacAddress != _selectedDevice) ||
+                    discovered.All(x => x.Info.MacAddress != _selectedDevice) ||
                     Connected.ContainsKey(_selectedDevice));
                 if (ImGui.Button("Connect"))
-                    Connect(_discovered.First(x => x.Info.MacAddress == _selectedDevice));
+                    Connect(discovered.First(x => x.Info.MacAddress == _selectedDevice));
                 ImGui.EndDisabled();
             } else {
                 ImGui.Text("Bluetooth is not available!");

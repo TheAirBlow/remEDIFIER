@@ -30,5 +30,5 @@ public class ShortData : IPacketData {
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
     public byte[] Serialize(PacketType type, SupportData? support)
-        => Value > byte.MaxValue ? [(byte)Value] : BitConverter.GetBytes(Value);
+        => Value < byte.MaxValue ? [(byte)Value] : BitConverter.GetBytes(Value);
 }

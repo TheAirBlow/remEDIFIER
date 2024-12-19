@@ -20,7 +20,8 @@ public class DeviceWindow : GuiWindow {
     /// </summary>
     private readonly List<Type> _allWidgets = [
         typeof(InfoWidget), typeof(PlaybackWidget), typeof(EqualizerWidget), 
-        typeof(DeviceNameWidget), typeof(DebugWidget)
+        typeof(DeviceNameWidget), typeof(AudioWidget), typeof(ShutdownWidget),
+        typeof(VolumeWidget), typeof(DebugWidget)
     ];
     
     /// <summary>
@@ -75,6 +76,8 @@ public class DeviceWindow : GuiWindow {
             .Where(x => x.Features.Length == 0 || client.Support!.Features.Any(y => x.Features.Contains(y))).ToList();
         var supported = _widgets.SelectMany(x => x.Features);
         _notSupported = Client.Support!.Features.Where(x => !supported.Contains(x)).ToList();
+        if (_notSupported.Count > 0)
+            Log.Warning("Some features are not supported: {0}", string.Join(", ", _notSupported));
         foreach (var widget in _widgets)
             try { widget.ReadSettings(this); }
             catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }

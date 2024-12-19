@@ -78,7 +78,7 @@ public class DeviceNameWidget : IWidget {
         window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
 
-    /// <summary>
+    /// <summary>HiRes
     /// Sends all the packets necessary
     /// </summary>
     /// <param name="window">Window</param>
