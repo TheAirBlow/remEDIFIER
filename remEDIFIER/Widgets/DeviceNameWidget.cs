@@ -1,5 +1,3 @@
-using static remEDIFIER.Configuration;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using ImGuiNET;
 using Raylib_ImGui;
@@ -12,7 +10,7 @@ namespace remEDIFIER.Widgets;
 /// <summary>
 /// Device name widget
 /// </summary>
-public class DeviceNameWidget : IWidget {
+public class DeviceNameWidget : SerializableWidget, IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
@@ -60,22 +58,13 @@ public class DeviceNameWidget : IWidget {
             case PacketType.GetDeviceName:
                 var value = ((StringData)data!).Value;
                 if (DeviceName != null && value != DeviceName) window.Client.Send(
-                    PacketType.SetDeviceName, new StringData { Value = _nameField }, wait: false);
+                    PacketType.SetDeviceName, new StringData { Value = DeviceName }, wait: false);
                 DeviceName = _nameField = value;
                 SaveSettings(window);
                 return true;
             default:
                 return false;
         }
-    }
-
-    /// <summary>
-    /// Saves settings to the configuration
-    /// </summary>
-    private void SaveSettings(DeviceWindow window) {
-        const string key = nameof(DeviceNameWidget);
-        var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.DeviceNameWidget)!;
-        window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
 
     /// <summary>HiRes

@@ -4,7 +4,7 @@
         <InvariantGlobalization>true</InvariantGlobalization>
         <EventSourceSupport>false</EventSourceSupport>
         <DebuggerSupport>false</DebuggerSupport>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PublishAot>true</PublishAot>
@@ -23,6 +23,7 @@
         <NeutralLanguage>en-US</NeutralLanguage>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+        <LangVersion>default</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

@@ -15,6 +15,18 @@ public class ShortData : IPacketData {
     public ushort Value { get; set; }
 
     /// <summary>
+    /// Creates packet data with default values
+    /// </summary>
+    public ShortData() { }
+    
+    /// <summary>
+    /// Creates packet data with specified value
+    /// </summary>
+    /// <param name="value">Value</param>
+    public ShortData(ushort value)
+        => Value = value;
+    
+    /// <summary>
     /// Deserializes packet from byte buffer
     /// </summary>
     /// <param name="type">Packet Type</param>

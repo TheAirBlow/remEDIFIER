@@ -12,7 +12,7 @@ namespace remEDIFIER.Widgets;
 /// <summary>
 /// Automatic or timer shutdown widget
 /// </summary>
-public class ShutdownWidget : IWidget {
+public class ShutdownWidget : SerializableWidget, IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
@@ -94,15 +94,6 @@ public class ShutdownWidget : IWidget {
             default:
                 return false;
         }
-    }
-
-    /// <summary>
-    /// Saves settings to the configuration
-    /// </summary>
-    private void SaveSettings(DeviceWindow window) {
-        const string key = nameof(ShutdownWidget);
-        var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.ShutdownWidget)!;
-        window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
     
     /// <summary>

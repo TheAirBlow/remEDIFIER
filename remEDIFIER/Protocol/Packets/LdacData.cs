@@ -3,7 +3,7 @@ namespace remEDIFIER.Protocol.Packets;
 /// <summary>
 /// LDAC packet data
 /// </summary>
-public class LDACData : IPacketData {
+public class LdacData : IPacketData {
     /// <summary>
     /// Packet type to apply this data object to
     /// </summary>
@@ -12,7 +12,19 @@ public class LDACData : IPacketData {
     /// <summary>
     /// Current LDAC state
     /// </summary>
-    public LDACState State { get; set; }
+    public LDACState Value { get; set; }
+    
+    /// <summary>
+    /// Creates packet data with default values
+    /// </summary>
+    public LdacData() { }
+    
+    /// <summary>
+    /// Creates packet data with specified value
+    /// </summary>
+    /// <param name="value">Value</param>
+    public LdacData(LDACState value)
+        => Value = value;
 
     /// <summary>
     /// Deserializes packet from byte buffer
@@ -21,7 +33,7 @@ public class LDACData : IPacketData {
     /// <param name="support">Support</param>
     /// <param name="buf">Buffer</param>
     public void Deserialize(PacketType type, SupportData? support, byte[] buf)
-        => State = (LDACState)buf[0];
+        => Value = (LDACState)buf[0];
 
     /// <summary>
     /// Serializes packet to byte buffer
@@ -30,9 +42,9 @@ public class LDACData : IPacketData {
     /// <param name="support">Support</param>
     /// <returns>Buffer</returns>
     public byte[] Serialize(PacketType type, SupportData? support) {
-        if (State == LDACState.On192K && !support!.Features.Contains(Feature.Allow192K)) 
+        if (Value == LDACState.On192K && !support!.Features.Contains(Feature.Allow192K)) 
             throw new InvalidDataException("192k bitrate is not supported by the current headset");
-        return [(byte)State];
+        return [(byte)Value];
     }
 }
 

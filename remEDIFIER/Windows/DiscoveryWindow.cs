@@ -1,7 +1,7 @@
 using static remEDIFIER.Configuration;
+using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
-using Raylib_ImGui;
 using Raylib_ImGui.Windows;
 using remEDIFIER.Bluetooth;
 using remEDIFIER.Protocol;
@@ -13,7 +13,17 @@ namespace remEDIFIER.Windows;
 /// <summary>
 /// Bluetooth discovery window
 /// </summary>
-public class DiscoveryWindow : GuiWindow {
+public class DiscoveryWindow : ManagedWindow {
+    /// <summary>
+    /// con to show in the top bar
+    /// </summary>
+    public override string Icon => "bluetooth";
+    
+    /// <summary>
+    /// Title to show in the top bar
+    /// </summary>
+    public override string Title => "Discovery";
+    
     /// <summary>
     /// Bluetooth adapter instance
     /// </summary>
@@ -30,56 +40,46 @@ public class DiscoveryWindow : GuiWindow {
     private readonly List<DiscoveredDevice> _discovered = [];
 
     /// <summary>
-    /// Devices we are connecting or connected to
+    /// Device that we're connecting to
     /// </summary>
-    public Dictionary<string, (EdifierClient, DeviceWindow?)> Connected { get; } = [];
-
-    /// <summary>
-    /// ImGui renderer instance
-    /// </summary>
-    public ImGuiRenderer Renderer { get; }
+    private DiscoveredDevice? _connectingTo;
     
     /// <summary>
     /// Is bluetooth available
     /// </summary>
     private bool _bluetoothAvailable;
-    
-    /// <summary>
-    /// Selected discovered device
-    /// </summary>
-    private string _selectedDevice = "";
-    
-    /// <summary>
-    /// Is currently discovering
-    /// </summary>
-    private bool _discovering;
 
     /// <summary>
-    /// Was there a successful auto connection
+    /// Should all bluetooth devices be shown
     /// </summary>
-    private bool _autoConnected;
+    private bool _showAll;
     
     /// <summary>
     /// Creates a new discovery window
     /// </summary>
-    /// <param name="renderer">ImGui renderer</param>
-    public DiscoveryWindow(ImGuiRenderer renderer) {
-        Renderer = renderer;
+    public DiscoveryWindow() {
         _discovery.DiscoveryFinished += () => {
-            if (!_discovering) return;
-            lock (_discovered)
-                _discovered.Clear();
-            _autoConnected = false;
+            if (Hidden) return;
             _discovery.StartDiscovery();
         };
-
+        
         _discovery.DeviceDiscovered += info => {
-            lock(_discovered)
-                _discovered.Add(new DiscoveredDevice(info));
-            if (_autoConnected) return;
-            var connected = Adapter.GetConnectedDevices();
-            if (connected.All(x => _discovered.Any(y => y.Info.MacAddress == x)))
-                AutoConnect();
+            Log.Information("Discovered {0} ({1}, BLE: {2})",
+                info.DeviceName, info.MacAddress, info.IsLowEnergyDevice);
+            lock (_discovered) {
+                if (_discovered.Any(x => x.Info.MacAddress == info.MacAddress)) return;
+                var cfg = Config.Devices.FirstOrDefault(x => x.MacAddress == info.MacAddress);
+                var device = new DiscoveredDevice(info);
+                if (cfg != null) {
+                    device.ProtocolVersion = cfg.ProtocolVersion;
+                    device.EncryptionType = cfg.EncryptionType;
+                }
+                var ble = _discovered.FirstOrDefault(x => x.ClassicAddress == info.MacAddress);
+                if (ble != null) device.UpdateFromBLE(ble);
+                if (device.ClassicAddress != null)
+                    _discovered.FirstOrDefault(x => x.Info.MacAddress == device.ClassicAddress)?.UpdateFromBLE(device);
+                _discovered.Add(device);
+            }
         };
         
         Adapter.AdapterDisabled += _ => {
@@ -90,12 +90,10 @@ public class DiscoveryWindow : GuiWindow {
         Adapter.AdapterEnabled += _ => {
             _bluetoothAvailable = true; 
             _discovery.StartDiscovery();
-            _discovering = true;
         };
         
         if (Adapter.BluetoothAvailable) {
             _discovery.StartDiscovery();
-            _discovering = true;
         }
         
         _bluetoothAvailable = Adapter.BluetoothAvailable;
@@ -104,55 +102,62 @@ public class DiscoveryWindow : GuiWindow {
     /// <summary>
     /// Draws window GUI
     /// </summary>
-    /// <param name="renderer">Renderer</param>
-    public override void DrawGUI(ImGuiRenderer renderer) {
-        if (ImGui.Begin($"Bluetooth Discovery ##{ID}", ImGuiWindowFlags.AlwaysAutoResize)) {
-            if (_bluetoothAvailable) {
-                ImGui.Text("Select a device to connect to:");
-                List<DiscoveredDevice> discovered;
-                lock (_discovered) discovered = _discovered.ToList();
-                foreach (var device in discovered) {
-                    ImGui.BeginGroup();
-                    ImGui.Image(device.Icon, new Vector2(24, 24));
-                    ImGui.SameLine();
-                    var name = device.DisplayName;
-                    var contains = Connected.TryGetValue(device.Info.MacAddress, out var pair);
-                    if (contains && pair.Item2 == null) name += " " + new string('.', (int)ImGui.GetTime() % 3 + 1);
-                    ImGui.BeginDisabled(contains);
-                    if (ImGui.Selectable(name, _selectedDevice == device.Info.MacAddress))
-                        _selectedDevice = device.Info.MacAddress;
-                    ImGui.EndDisabled();
-                    ImGui.EndGroup();
-                }
-                ImGui.BeginDisabled(
-                    discovered.All(x => x.Info.MacAddress != _selectedDevice) ||
-                    Connected.ContainsKey(_selectedDevice));
-                if (ImGui.Button("Connect"))
-                    Connect(discovered.First(x => x.Info.MacAddress == _selectedDevice));
-                ImGui.EndDisabled();
+    public override void Draw() {
+        if (_bluetoothAvailable) {
+            MyGui.PushContentRegion();
+            MyGui.Text(_showAll ? "Show only compatible devices >>" : "Show incompatible devices >>", 20, Color.DarkGray);
+            if (ImGui.IsItemClicked()) _showAll = !_showAll;
+            ImGui.SameLine();
+            MyGui.SetNextPadding(right: 5);
+            MyGui.SetNextCentered(1f);
+            MyGui.Icon("refresh", new Vector2(16, 16));
+            if (ImGui.IsItemClicked()) {
+                _discovery.StopDiscovery();
+                _discovery.StartDiscovery();
+                lock (_discovered)
+                    _discovered.Clear();
+            }
+            if (!_discovered.Any(x => (!x.Info.IsLowEnergyDevice || x.Product != null) && (_showAll || x is { Product: not null }))) {
+                MyGui.SetNextCentered(0.5f, 0.5f);
+                MyGui.TextWrapped(
+                    "No devices have been found yet!\n" +
+                    "This might take a bit of time,\n" +
+                    "so please be patient.");
             } else {
-                ImGui.Text("Bluetooth is not available!");
-                ImGui.Text("Make sure you have Bluetooth enabled.");
+                List<DiscoveredDevice> discovered;
+                lock (_discovered) discovered = _discovered.Where(x => _showAll || x is { Product: not null }).ToList();
+                foreach (var device in discovered) {
+                    ImGui.BeginChild(device.Info.MacAddress,
+                        new Vector2(ImGui.GetIO().DisplaySize.X - 10, 40 + (device.Status != null ? 18 : 0)));
+                    MyGui.PushContentRegion();
+                    MyGui.SetNextCentered(0f, 0.5f);
+                    MyGui.Icon(device.Icon, new Vector2(28, 28));
+                    ImGui.SameLine();
+                    MyGui.SetNextCentered(0f, 0.5f);
+                    MyGui.Wrapped(() => {
+                        ImGui.BeginGroup();
+                        MyGui.Text(device.DisplayName, 28);
+                        if (device.Status != null)
+                            MyGui.Text(device.Status, 18, Color.DarkGray);
+                        ImGui.EndGroup();
+                    });
+                    ImGui.SameLine();
+                    MyGui.SetNextPadding(right: 5);
+                    MyGui.SetNextCentered(1f, 0.5f);
+                    MyGui.Icon("angle-right", new Vector2(28, 28));
+                    MyGui.PopContentRegion();
+                    ImGui.EndChild();
+                    if (ImGui.IsItemClicked()) 
+                        Connect(device);
+                    ImGui.Separator();
+                    // name += " " + new string('.', (int)ImGui.GetTime() % 3 + 1);
+                }
             }
             
-            ImGui.End();
-        }
-    }
-
-    /// <summary>
-    /// Attempts to automatically connect
-    /// </summary>
-    private void AutoConnect() {
-        var connected = Adapter.GetConnectedDevices();
-        foreach (var device in _discovered
-                     .Where(x => !Connected.ContainsKey(x.Info.MacAddress) && Config.Devices.Any(y => x.Info.MacAddress == y.MacAddress && y.AutoConnect))
-                     .OrderBy(x => x.Info.IsLowEnergyDevice).ThenByDescending(x => connected.Contains(x.Info.MacAddress))) {
-            if ((device.Info.IsLowEnergyDevice && !Config.AutoConnectOverLowEnergy)
-                || (!device.Info.IsLowEnergyDevice && !Config.AutoConnectOverClassic)) continue;
-            Log.Information("Found device for automatic connection");
-            Connect(device, false);
-            _autoConnected = true;
-            return;
+            MyGui.PopContentRegion();
+        } else {
+            MyGui.SetNextCentered(0.5f, 0.5f);
+            MyGui.Text("Bluetooth is not available!\nMake sure you have it enabled.");
         }
     }
     
@@ -160,77 +165,42 @@ public class DiscoveryWindow : GuiWindow {
     /// Connects to a device
     /// </summary>
     /// <param name="device">Device Info</param>
-    /// <param name="manual">Is Manual</param>
-    private void Connect(DiscoveredDevice device, bool manual = true) {
-        var client = new EdifierClient();
-        Connected.Add(device.Info.MacAddress, (client, null));
-        client.DeviceConnected += () => {
-            var data = client.Send(PacketType.GetSupportedFeatures);
+    private void Connect(DiscoveredDevice device) {
+        _connectingTo?.Client.Disconnect();
+        _connectingTo = device;
+        device.Status = "Connecting, please wait...";
+        device.Client.DeviceConnected += () => {
+            var data = device.Client.Send(PacketType.GetSupportedFeatures);
             if (data is not SupportData) {
-                if (manual) Renderer.OpenWindow(new PopupWindow("An error occured", "Failed to receive support data"));
-                client.Disconnect();
+                MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", "Failed to receive support data"));
+                device.Client.Disconnect();
                 return;
             }
-            
-            var window = new DeviceWindow(client, device.DisplayName);
-            Connected[device.Info.MacAddress] = (client, window);
-            Renderer.OpenWindow(window);
+
+            var window = new DeviceWindow(device);
+            Manager.OpenWindow(window);
+            device.Status = null;
         };
-        client.DeviceDisconnected += () => {
-            if (!Connected.TryGetValue(device.Info.MacAddress, out var pair)) return;
-            if (pair.Item2 != null) pair.Item2.IsOpen = false;
-            Connected.Remove(device.Info.MacAddress);
+        device.Client.DeviceDisconnected += () => {
+            if (_connectingTo == device)
+                _connectingTo = null;
+            device.Status = null;
         };
-        client.ErrorOccured += (err, code) => {
-            if (manual) Renderer.OpenWindow(new PopupWindow("An error occured", $"{err} ({code})"));
-            if (!Connected.TryGetValue(device.Info.MacAddress, out var pair)) return;
-            if (pair.Item2 != null) pair.Item2.IsOpen = false;
-            Connected.Remove(device.Info.MacAddress);
+        device.Client.ErrorOccured += (err, code) => {
+            MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", $"{err} ({code})"));
         };
-        client.Connect(device.Info, Adapter);
+        device.Client.Connect(device, Adapter);
     }
 
     /// <summary>
-    /// Discovered device information
+    /// Starts discovery
     /// </summary>
-    private class DiscoveredDevice {
-        /// <summary>
-        /// Display name
-        /// </summary>
-        public string DisplayName { get; set; }
-        
-        /// <summary>
-        /// Device information
-        /// </summary>
-        public DeviceInfo Info { get; }
-        
-        /// <summary>
-        /// Icon handle to show
-        /// </summary>
-        public IntPtr Icon { get; }
+    public override void OnShown()
+        => _discovery.StartDiscovery();
 
-        /// <summary>
-        /// Creates a new discovered device
-        /// </summary>
-        /// <param name="info">Device Info</param>
-        public DiscoveredDevice(DeviceInfo info) {
-            Info = info;
-            if (info.IsLowEnergyDevice) {
-                var valid = info.ServiceUuids!.FirstOrDefault(x => Product.Products.Any(y => y.ProductSearchUuid == x));
-                if (valid != null) {
-                    var product = Product.Products.First(x => x.ProductSearchUuid == valid);
-                    DisplayName = $"{product.ProductName} (BLE)";
-                    Icon = Images.Get("edifier");
-                    return;
-                }
-
-                DisplayName = info.DeviceName;
-                Icon = Images.Get("bluetooth");
-                return;
-            }
-            
-            DisplayName = info.DeviceName;
-            Icon = Images.Get(info.MajorDeviceType == 4 ? "audio" : "bluetooth");
-        }
-    }
+    /// <summary>
+    /// Starts discovery
+    /// </summary>
+    public override void OnHidden()
+        => _discovery.StopDiscovery();
 }

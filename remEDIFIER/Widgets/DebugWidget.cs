@@ -37,7 +37,8 @@ public class DebugWidget : IWidget {
                 Array.Copy(bytes, 0, buf, 2, bytes.Length);
                 buf[0] = 0xAA;
                 buf[1] = (byte)bytes.Length;
-                Packet.Sign(buf);
+                var signSize = window.Client.Support!.ProtocolVersion <= 1 ? 2 : 1;
+                Packet.Hash(buf, signSize);
                 window.Client.Send(buf);
             } catch (Exception e) {
                 renderer.OpenWindow(new PopupWindow("Failed to send packet", e.ToString()));

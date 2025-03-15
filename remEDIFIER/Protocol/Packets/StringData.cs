@@ -15,6 +15,18 @@ public class StringData : IPacketData {
     /// Current string value
     /// </summary>
     public string Value { get; set; } = "";
+    
+    /// <summary>
+    /// Creates packet data with default values
+    /// </summary>
+    public StringData() { }
+    
+    /// <summary>
+    /// Creates packet data with specified value
+    /// </summary>
+    /// <param name="value">Value</param>
+    public StringData(string value)
+        => Value = value;
 
     /// <summary>
     /// Deserializes packet from byte buffer

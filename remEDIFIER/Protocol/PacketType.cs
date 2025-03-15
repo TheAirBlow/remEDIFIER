@@ -13,6 +13,7 @@ public enum PacketType : byte {
     SetGameMode = 0x09,
     SetLDAC = 0x49,
     GetLDAC = 0x48,
+    PlayInfo = 0x50,
     GetAudioDecoding = 0x68,
     SetANCMode = 0xC1,
     AVCRPCommand = 0xC2,

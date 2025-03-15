@@ -14,7 +14,17 @@ namespace remEDIFIER.Windows;
 /// <summary>
 /// Device management window
 /// </summary>
-public class DeviceWindow : GuiWindow {
+public class DeviceWindow : ManagedWindow {
+    /// <summary>
+    /// con to show in the top bar
+    /// </summary>
+    public override string Icon => "headphones";
+    
+    /// <summary>
+    /// Title to show in the top bar
+    /// </summary>
+    public override string Title => Device.Product?.Name ?? Device.Info.DeviceName;
+    
     /// <summary>
     /// List of all widgets
     /// </summary>
@@ -25,14 +35,19 @@ public class DeviceWindow : GuiWindow {
     ];
     
     /// <summary>
-    /// Bluetooth connection
+    /// Connected device
     /// </summary>
-    public EdifierClient Client { get; }
+    public DiscoveredDevice Device { get; private set; }
+
+    /// <summary>
+    /// Edifier client
+    /// </summary>
+    public EdifierClient Client => Device.Client;
     
     /// <summary>
     /// Device configuration
     /// </summary>
-    public Device? Device { get; private set; }
+    public Device? DeviceConfig { get; private set; }
 
     /// <summary>
     /// Widgets to render
@@ -45,11 +60,6 @@ public class DeviceWindow : GuiWindow {
     private readonly List<Feature> _notSupported;
 
     /// <summary>
-    /// Display name
-    /// </summary>
-    private readonly string _name;
-
-    /// <summary>
     /// Frame counter for auto resize
     /// </summary>
     private int _frames;
@@ -57,23 +67,27 @@ public class DeviceWindow : GuiWindow {
     /// <summary>
     /// Creates a new device window
     /// </summary>
-    /// <param name="client">Edifier client</param>
-    /// <param name="name">Display Name</param>
-    public DeviceWindow(EdifierClient client, string name) {
-        _name = name; Client = client; 
+    /// <param name="device">Device</param>
+    public DeviceWindow(DiscoveredDevice device) {
+        Device = device;
         Client.PacketReceived += PacketReceived;
-        Device = Config.Devices.FirstOrDefault(x => x.MacAddress == client.Info!.MacAddress);
-        if (Device == null) {
-            Device = new Device { MacAddress = client.Info!.MacAddress };
-            Config.Devices.Add(Device);
+        Client.DeviceDisconnected += OnClosed;
+        DeviceConfig = Config.Devices.FirstOrDefault(x => x.MacAddress == Device.Info.MacAddress);
+        if (DeviceConfig == null) {
+            DeviceConfig = new Device {
+                MacAddress = Device.Info.MacAddress,
+                ProtocolVersion = Device.ProtocolVersion!.Value,
+                EncryptionType = Device.EncryptionType!.Value
+            };
+            Config.Devices.Add(DeviceConfig);
             Config.Save();
         }
         
         _widgets = _allWidgets
-            .Select(x => Device.Widgets.TryGetValue(x.Name, out var json) 
+            .Select(x => DeviceConfig.Widgets.TryGetValue(x.Name, out var json) 
                 ? (IWidget)json.Deserialize(x, JsonContext.Default)!
                 : (IWidget)Activator.CreateInstance(x)!)
-            .Where(x => x.Features.Length == 0 || client.Support!.Features.Any(y => x.Features.Contains(y))).ToList();
+            .Where(x => x.Features.Length == 0 || Client.Support!.Features.Any(y => x.Features.Contains(y))).ToList();
         var supported = _widgets.SelectMany(x => x.Features);
         _notSupported = Client.Support!.Features.Where(x => !supported.Contains(x)).ToList();
         if (_notSupported.Count > 0)
@@ -86,57 +100,36 @@ public class DeviceWindow : GuiWindow {
     /// <summary>
     /// Draws window GUI
     /// </summary>
-    /// <param name="renderer">Renderer</param>
-    public override void DrawGUI(ImGuiRenderer renderer) {
-        if (ImGui.Begin($"{_name} ##{ID}", ref IsOpen, _frames < 2 ? ImGuiWindowFlags.AlwaysAutoResize : ImGuiWindowFlags.None)) {
-            if (!IsOpen) Client.Disconnect();
-            if (Client is { Connected: true, Support: null }) {
-                ImGui.Text("Waiting for support data...");
-                ImGui.End();
-                return;
-            }
-                
-            if (Client.Connected) {
-                foreach (var widget in _widgets)
-                    try { widget.Render(this, renderer); }
-                    catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
-                
-                if (_notSupported.Count > 0) {
-                    ImGui.SeparatorText("Missing features");
-                    ImGui.TextWrapped(string.Join(", ", _notSupported));
-                }
-
-                if (_frames < 2) _frames++;
-                var check = Device!.AutoConnect;
-                ImGui.Checkbox("Auto-connect", ref check);
-                if (!check && Device.AutoConnect) {
-                    Device.AutoConnect = false;
-                    Config.Save();
-                }
-                if (check && !Device.AutoConnect) {
-                    Device.AutoConnect = true;
-                    Config.Save();
-                }
-                
-                ImGui.SameLine();
-                check = Device!.RestoreSettings;
-                ImGui.Checkbox("Restore settings", ref check);
-                if (!check && Device.RestoreSettings) {
-                    Device.RestoreSettings = false;
-                    Config.Save();
-                }
-                if (check && !Device.RestoreSettings) {
-                    Device.RestoreSettings = true;
-                    Config.Save();
-                }
-                    
-                ImGui.End();
-                return;
-            } 
+    public override void Draw() {
+        if (Client.Connected) {
+            ImGui.Text("TODO: redo this whole thing");
+            foreach (var widget in _widgets)
+                try { widget.Render(this, MyGui.Renderer); }
+                catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
             
-            ImGui.Text("Connecting, please wait...");
+            if (_notSupported.Count > 0) {
+                ImGui.SeparatorText("Missing features");
+                ImGui.TextWrapped(string.Join(", ", _notSupported));
+            }
+
+            if (_frames < 2) _frames++;
+            var check = DeviceConfig!.RestoreSettings;
+            ImGui.Checkbox("Restore settings", ref check);
+            if (!check && DeviceConfig.RestoreSettings) {
+                DeviceConfig.RestoreSettings = false;
+                Config.Save();
+            }
+            if (check && !DeviceConfig.RestoreSettings) {
+                DeviceConfig.RestoreSettings = true;
+                Config.Save();
+            }
+                    
             ImGui.End();
-        }
+            return;
+        } 
+            
+        ImGui.Text("Connecting, please wait...");
+        ImGui.End();
     }
     
     /// <summary>
@@ -148,5 +141,14 @@ public class DeviceWindow : GuiWindow {
         foreach (var widget in _widgets)
             try { if (widget.PacketReceived(this, type, data)) return; }
             catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
+    }
+
+    /// <summary>
+    /// Disconnects from the device
+    /// </summary>
+    public override void OnClosed() {
+        Device.Client.Disconnect();
+        Device.Client = new EdifierClient();
+        Closed = true;
     }
 }

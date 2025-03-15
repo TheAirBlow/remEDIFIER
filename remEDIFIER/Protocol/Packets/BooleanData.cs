@@ -15,6 +15,18 @@ public class BooleanData : IPacketData {
     public bool Value { get; set; }
 
     /// <summary>
+    /// Creates packet data with default values
+    /// </summary>
+    public BooleanData() { }
+    
+    /// <summary>
+    /// Creates packet data with specified value
+    /// </summary>
+    /// <param name="value">Value</param>
+    public BooleanData(bool value)
+        => Value = value;
+
+    /// <summary>
     /// Deserializes packet from byte buffer
     /// </summary>
     /// <param name="type">Packet Type</param>

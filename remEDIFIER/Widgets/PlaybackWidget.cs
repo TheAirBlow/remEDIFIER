@@ -69,6 +69,13 @@ public class PlaybackWidget : IWidget {
     /// <returns>True if processed</returns>
     public bool PacketReceived(DeviceWindow window, PacketType type, IPacketData? data) {
         switch (type) {
+            case PacketType.PlayInfo:
+                var info = (PlayData)data!;
+                _state = info.Playing ? AVCRPState.Playing : AVCRPState.Paused;
+                _author = info.Author; _song = info.Song;
+                if (_state == AVCRPState.Paused)
+                    _author = _song = null;
+                return true;
             case PacketType.AVCRPState:
                 _state = ((AVCRPStateData)data!).State;
                 if (_state == AVCRPState.Paused)

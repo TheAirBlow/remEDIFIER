@@ -12,7 +12,7 @@ namespace remEDIFIER.Widgets;
 /// <summary>
 /// Prompt volume widget
 /// </summary>
-public class VolumeWidget : IWidget {
+public class VolumeWidget : SerializableWidget, IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
@@ -73,15 +73,6 @@ public class VolumeWidget : IWidget {
             default:
                 return false;
         }
-    }
-
-    /// <summary>
-    /// Saves settings to the configuration
-    /// </summary>
-    private void SaveSettings(DeviceWindow window) {
-        const string key = nameof(VolumeWidget);
-        var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.VolumeWidget)!;
-        window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
     
     /// <summary>

@@ -1,5 +1,3 @@
-using static remEDIFIER.Configuration;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using ImGuiNET;
 using Raylib_ImGui;
@@ -13,7 +11,7 @@ namespace remEDIFIER.Widgets;
 /// <summary>
 /// Equalizer widget
 /// </summary>
-public class EqualizerWidget : IWidget {
+public class EqualizerWidget : SerializableWidget, IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
@@ -66,15 +64,6 @@ public class EqualizerWidget : IWidget {
             default:
                 return false;
         }
-    }
-
-    /// <summary>
-    /// Saves settings to the configuration
-    /// </summary>
-    private void SaveSettings(DeviceWindow window) {
-        const string key = nameof(EqualizerWidget);
-        var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.EqualizerWidget)!;
-        window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
     
     /// <summary>

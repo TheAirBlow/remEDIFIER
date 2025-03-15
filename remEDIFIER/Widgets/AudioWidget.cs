@@ -1,5 +1,3 @@
-using static remEDIFIER.Configuration;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using ImGuiNET;
 using Raylib_ImGui;
@@ -12,7 +10,7 @@ namespace remEDIFIER.Widgets;
 /// <summary>
 /// Audio codec settings widget
 /// </summary>
-public class AudioWidget : IWidget {
+public class AudioWidget : SerializableWidget, IWidget {
     /// <summary>
     /// Features this widget supports
     /// </summary>
@@ -48,7 +46,7 @@ public class AudioWidget : IWidget {
                 var name = states[i].ToString();
                 if (name.StartsWith("On")) name = name[2..];
                 if (ImGui.RadioButton($"{name}##{i}", State == states[i]))
-                    window.Client.Send(PacketType.SetLDAC, new LDACData { State = states[i] }, wait: false);
+                    window.Client.Send(PacketType.SetLDAC, new LdacData { Value = states[i] }, wait: false);
             }
         }
 
@@ -70,14 +68,12 @@ public class AudioWidget : IWidget {
     public bool PacketReceived(DeviceWindow window, PacketType type, IPacketData? data) {
         switch (type) {
             case PacketType.GetLDAC: {
-                var value = ((LDACData)data!).State;
-                if (State != null && value != State) window.Client.Send(
-                    PacketType.SetLDAC, new LDACData { State = State.Value }, wait: false);
+                var value = ((LdacData)data!).Value;
                 State = value; SaveSettings(window);
                 return true;
             }
             case PacketType.SetLDAC: {
-                var value = ((LDACData)data!).State;
+                var value = ((LdacData)data!).Value;
                 State = value; SaveSettings(window);
                 return true;
             }
@@ -96,15 +92,6 @@ public class AudioWidget : IWidget {
             default:
                 return false;
         }
-    }
-
-    /// <summary>
-    /// Saves settings to the configuration
-    /// </summary>
-    private void SaveSettings(DeviceWindow window) {
-        const string key = nameof(AudioWidget);
-        var node = JsonSerializer.SerializeToNode(this, JsonContext.Default.AudioWidget)!;
-        window.Device!.Widgets[key] = node.AsObject(); Config.Save();
     }
     
     /// <summary>

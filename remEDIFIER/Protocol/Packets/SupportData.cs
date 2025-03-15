@@ -37,6 +37,16 @@ public class SupportData : IPacketData {
     public byte? TapValue { get; private set; }
     
     /// <summary>
+    /// Protocol version
+    /// </summary>
+    public int? ProtocolVersion { get; set; }
+    
+    /// <summary>
+    /// Encryption type
+    /// </summary>
+    public EncryptionType? EncryptionType { get; set; }
+    
+    /// <summary>
     /// Deserializes packet from byte buffer
     /// </summary>
     /// <param name="type">Packet Type</param>

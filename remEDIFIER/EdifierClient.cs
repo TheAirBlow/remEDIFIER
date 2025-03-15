@@ -20,9 +20,9 @@ public class EdifierClient {
     private IBluetooth? _bluetooth;
     
     /// <summary>
-    /// Device info
+    /// Discovered device
     /// </summary>
-    public DeviceInfo? Info { get; private set; }
+    public DiscoveredDevice? Device { get; private set; }
     
     /// <summary>
     /// Support data if available
@@ -57,38 +57,40 @@ public class EdifierClient {
     /// <summary>
     /// Connects to an edifier device
     /// </summary>
-    /// <param name="info">Device Info</param>
+    /// <param name="device">Device</param>
     /// <param name="adapter">Adapter</param>
-    public void Connect(DeviceInfo info, BluetoothAdapter adapter) {
-        Info = info;
+    public void Connect(DiscoveredDevice device, BluetoothAdapter adapter) {
+        Device = device;
+        Support = new SupportData {
+            ProtocolVersion = device.ProtocolVersion,
+            EncryptionType = device.EncryptionType
+        };
         Log.Information("Connecting to {0} ({1}, BLE: {2})",
-            info.DeviceName, info.MacAddress, info.IsLowEnergyDevice);
+            device.Info.DeviceName, device.Info.MacAddress, device.Info.IsLowEnergyDevice);
         if (_bluetooth != null) throw new InvalidOperationException("Connection is already in progress");
         if (Connected) throw new InvalidOperationException("Device is already connected");
-        if (info.IsLowEnergyDevice) {
+        if (device.Info.IsLowEnergyDevice) {
             var lowEnergy = new BluetoothLowEnergy();
             _bluetooth = lowEnergy; RegisterEvents();
-            var valid = info.ServiceUuids!.FirstOrDefault(x => Product.Products.Any(y => y.ProductSearchUuid == x));
-            if (valid == null) throw new InvalidDataException($"{info.DeviceName} is not an Edifier product");
-            var product = Product.Products.First(x => x.ProductSearchUuid == valid);
-            lowEnergy.Connect(adapter.AdapterAddress!, info.MacAddress, 
-                product.ProductServiceUuid, product.ProductWriteUuid,
-                product.ProductReadUuid);
+            if (device.Product == null) throw new InvalidDataException($"{device.Info.DeviceName} is not an Edifier product");
+            lowEnergy.Connect(adapter.AdapterAddress!, device.Info.MacAddress,
+                device.Product.ProductServiceUuid, device.Product.ProductWriteUuid,
+                device.Product.ProductReadUuid);
             return;
         }
 
         var classic = new BluetoothClassic();
         _bluetooth = classic; RegisterEvents();
-        classic.Connect(info.MacAddress);
+        classic.Connect(device.Info.MacAddress);
     }
 
     /// <summary>
     /// Disconnects from current device
     /// </summary>
     public void Disconnect() {
-        if (_bluetooth == null) return;
+        if (_bluetooth == null || Device == null) return;
         Log.Information("Disconnected from {0} ({1}, BLE: {2})",
-            Info!.DeviceName, Info.MacAddress, Info.IsLowEnergyDevice);
+            Device.Info.DeviceName, Device.Info.MacAddress, Device.Info.IsLowEnergyDevice);
         Connected = false;
         _bluetooth.Disconnect();
         _bluetooth = null;
@@ -98,23 +100,29 @@ public class EdifierClient {
     /// Registers event handlers
     /// </summary>
     private void RegisterEvents() {
+        if (Device == null) return;
         _bluetooth!.DeviceConnected += () => {
             Connected = true;
             new Thread(() => DeviceConnected?.Invoke()).Start();
         };
         _bluetooth.DeviceDisconnected += () => {
             Log.Information("Disconnected from {0} ({1}, BLE: {2})",
-                Info!.DeviceName, Info.MacAddress, Info.IsLowEnergyDevice);
+                Device.Info.DeviceName, Device.Info.MacAddress, Device.Info.IsLowEnergyDevice);
             new Thread(() => DeviceDisconnected?.Invoke()).Start();
         };
         _bluetooth.ErrorOccured += (err, code) => {
             Log.Information("Disconnected with error {0} ({1})", err, code);
             new Thread(() => ErrorOccured?.Invoke(err, code)).Start();
+            new Thread(() => DeviceDisconnected?.Invoke()).Start();
         };
         _bluetooth.DataReceived += buf => {
-            var (type, data) = Packet.Deserialize(buf, Support);
-            Log.Information("Received {0} with payload {1}", type, Convert.ToHexString(buf[3..^2]));
-            if (type == PacketType.GetSupportedFeatures) Support = (SupportData)data!;
+            var (type, data, payload) = Packet.Deserialize(buf, Support);
+            Log.Information("Received {0} with payload {1}", type, Convert.ToHexString(payload));
+            if (type == PacketType.GetSupportedFeatures) {
+                Support = (SupportData)data!;
+                Support.ProtocolVersion = Device.ProtocolVersion;
+                Support.EncryptionType = Device.EncryptionType;
+            }
             var target = _packets.FirstOrDefault(x => x.Type == type && !x.Received);
             if (target == null) {
                 PacketReceived?.Invoke(type, data);
@@ -149,8 +157,10 @@ public class EdifierClient {
         if (!Connected) throw new InvalidOperationException("No device is connected");
         var buf = Packet.Serialize(type, Support, data);
         _bluetooth!.Write(buf);
-        Log.Information(buf.Length > 5 ? "Sent {0} with payload {1}" : "Sent {0} without payload", 
-            type, Convert.ToHexString(buf[3..^2]));
+        var serialized = data?.Serialize(type, Support) ?? [];
+        Log.Information(
+            serialized.Length > 0 ? "Sent {0} with payload {1}" : "Sent {0} without payload",
+            type, Convert.ToHexString(serialized));
         if (!wait) return null;
         var wrapper = new PacketWrapper { Type = type };
         _packets.Add(wrapper);

@@ -36,18 +36,6 @@ public class Configuration {
     }
 
     /// <summary>
-    /// Automatically connect to devices that you have connected to manually before over bluetooth low energy.
-    /// Applies only in case there is no audio device connected over Classic.
-    /// </summary>
-    public bool AutoConnectOverLowEnergy { get; set; } = true;
-
-    /// <summary>
-    /// Automatically connect to devices that you have connected to manually before over bluetooth classic.
-    /// Applies only if the connected device is an audio device.
-    /// </summary>
-    public bool AutoConnectOverClassic { get; set; } = true;
-
-    /// <summary>
     /// A list of devices hat user has connected to before
     /// </summary>
     public List<Device> Devices { get; set; } = [];
@@ -68,9 +56,14 @@ public class Configuration {
         public string MacAddress { get; set; } = "";
         
         /// <summary>
-        /// Is automatic connection allowed for this device
+        /// Protocol version
         /// </summary>
-        public bool AutoConnect { get; set; }
+        public int ProtocolVersion { get; set; }
+    
+        /// <summary>
+        /// Encryption type
+        /// </summary>
+        public EncryptionType EncryptionType { get; set; }
         
         /// <summary>
         /// Should settings be automatically restored

@@ -38,14 +38,30 @@ public static class Packet {
         if (data != null && !data.Types.Contains(type)) throw new ArgumentOutOfRangeException(
             nameof(data), $"Specified packet data type does not support {type.ToString()}");
         var dataBuf = data != null ? data.Serialize(type, support) : [];
-        var buf = new byte[dataBuf.Length + 5];
-        if (dataBuf.Length != 0)
-            Array.Copy(dataBuf, 0, buf, 3, dataBuf.Length);
-        buf[0] = 0xAA;
-        buf[1] = (byte)(dataBuf.Length + 1);
-        buf[2] = (byte)type;
-        Sign(buf);
-        return buf;
+        if (support?.EncryptionType == EncryptionType.XOR)
+            for (var i = 0; i < dataBuf.Length; i++)
+                dataBuf[i] ^= 0xA5;
+        if (support?.ProtocolVersion <= 1) {
+            var buf = new byte[dataBuf.Length + 5];
+            if (dataBuf.Length != 0)
+                Array.Copy(dataBuf, 0, buf, 3, dataBuf.Length);
+            buf[0] = 0xAA;
+            buf[1] = (byte)(dataBuf.Length + 1);
+            buf[2] = (byte)type;
+            Hash(buf, 2);
+            return buf;
+        } else {
+            var buf = new byte[dataBuf.Length + 6];
+            if (dataBuf.Length != 0)
+                Array.Copy(dataBuf, 0, buf, 5, dataBuf.Length);
+            buf[0] = 0xAA;
+            buf[1] = 0xEC;
+            buf[2] = (byte)type;
+            buf[3] = (byte)(dataBuf.Length >> 8);
+            buf[4] = (byte)(dataBuf.Length & 0xFF);
+            Hash(buf, 1);
+            return buf;
+        }
     }
 
     /// <summary>
@@ -53,43 +69,69 @@ public static class Packet {
     /// </summary>
     /// <param name="buf">Packet Buffer</param>
     /// <param name="support">Support Data</param>
-    /// <returns>Packet Type and Data</returns>
-    public static (PacketType, IPacketData?) Deserialize(byte[] buf, SupportData? support = null) {
-        if (buf.Length < 5) throw new ArgumentOutOfRangeException(
-            nameof(buf), "There must be at least 5 bytes in a packet");
-        if (buf[0] != 0xBB && buf[0] != 0xCC) throw new ArgumentOutOfRangeException(
-            nameof(buf), $"Invalid packet header, expected BB or CC but found {buf[0]:X2}");
-        if (buf.Length != buf[1] + 4) throw new ArgumentOutOfRangeException(
-            nameof(buf), $"Invalid packet length, expected {buf[1] + 4} but found {buf.Length}");
-        Sign(buf, true);
-        var type = (PacketType)buf[2];
-        _mapping.TryGetValue(type, out var data);
-        if (data == null) return (type, data);
-        var payload = new byte[buf[1] - 1];
-        Array.Copy(buf, 3, payload, 0, payload.Length);
-        data.Deserialize(type, support, payload);
-        return (type, data);
+    /// <returns>Packet Type, Data, Raw Payload</returns>
+    public static (PacketType, IPacketData?, byte[]) Deserialize(byte[] buf, SupportData? support = null) {
+        if (support?.ProtocolVersion <= 1) {
+            if (buf.Length < 5) throw new ArgumentOutOfRangeException(
+                nameof(buf), "There must be at least 5 bytes in a packet");
+            if (buf[0] != 0xBB && buf[0] != 0xCC) throw new ArgumentOutOfRangeException(
+                nameof(buf), $"Invalid packet header, expected BB or CC but found {buf[0]:X2}");
+            if (buf.Length != buf[1] + 4) throw new ArgumentOutOfRangeException(
+                nameof(buf), $"Invalid packet length, expected {buf[1] + 4} but found {buf.Length}");
+            Hash(buf, 2, true);
+            var type = (PacketType)buf[2];
+            _mapping.TryGetValue(type, out var data);
+            var payload = new byte[buf[1] - 1];
+            Array.Copy(buf, 3, payload, 0, payload.Length);
+            if (data == null) return (type, data, payload);
+            data.Deserialize(type, support, payload);
+            return (type, data, payload);
+        } else {
+            if (buf.Length < 6) throw new ArgumentOutOfRangeException(
+                nameof(buf), "There must be at least 6 bytes in a packet");
+            if (buf[0] != 0xBB && buf[0] != 0xCC) throw new ArgumentOutOfRangeException(
+                nameof(buf), $"Invalid packet header, expected BB or CC but found {buf[0]:X2}");
+            if (buf[1] != 0xEC) throw new ArgumentOutOfRangeException(
+                nameof(buf), $"Invalid app code, expected EC but found {buf[1]:X2}");
+            var length = (buf[3] << 8) | buf[4];
+            if (buf.Length != length + 6) throw new ArgumentOutOfRangeException(
+                nameof(buf), $"Invalid packet length, expected {length + 6} but found {buf.Length}");
+            Hash(buf, 1, true);
+            var type = (PacketType)buf[2];
+            _mapping.TryGetValue(type, out var data);
+            var payload = new byte[length];
+            Array.Copy(buf, 5, payload, 0, payload.Length);
+            if (support?.EncryptionType == EncryptionType.XOR)
+                for (var i = 0; i < payload.Length; i++)
+                    payload[i] ^= 0xA5;
+            if (data == null) return (type, data, payload);
+            data.Deserialize(type, support, payload);
+            return (type, data, payload);
+        }
     }
-    
+
     /// <summary>
     /// Sets or verifies signature
     /// </summary>
     /// <param name="buf">Buffer</param>
+    /// <param name="signSize">Sign size</param>
     /// <param name="verify">Verify</param>
-    public static void Sign(byte[] buf, bool verify = false) {
-        ushort sum = 8217;
-        for (var i = 0; i < buf.Length - 2; i++)
+    public static void Hash(byte[] buf, int signSize, bool verify = false) {
+        var sum = (ushort)(signSize == 2 ? 8217 : 0);
+        for (var i = 0; i < buf.Length - signSize; i++)
             sum += buf[i];
         var val1 = (sum >> 8) & 255;
         var val2 = sum & 255;
         if (verify) {
-            if (buf[^1] != val2 || buf[^2] != val1)
-                Log.Warning("Invalid signature, expected {0:X2}{1:X2} but found {2:X2}{3:X2} in {4}",
-                    val1, val2, buf[^2], buf[^1], Convert.ToHexString(buf));
+            if ((signSize > 0 && buf[^1] != val2) || (signSize > 1 && buf[^2] != val1))
+                Log.Warning("Invalid signature, expected {0:X2}{1:X2} but found {2:X2}{3:X2} in {4} (sign size: {5})",
+                    val1, val2, buf[^2], buf[^1], Convert.ToHexString(buf), signSize);
             return;
         }
 
-        buf[^2] = (byte)val1;
-        buf[^1] = (byte)val2;
+        if (signSize > 1)
+            buf[^2] = (byte)val1;
+        if (signSize > 0)
+            buf[^1] = (byte)val2;
     }
 }

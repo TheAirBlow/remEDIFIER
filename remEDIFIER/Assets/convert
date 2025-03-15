@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+
+inkscape -w 256 $1 -o ${1%.*}.png
+magick ${1%.*}.png -resize 256x256 -gravity center -background none -extent 256x256 -channel RGB -negate ${1%.*}.png

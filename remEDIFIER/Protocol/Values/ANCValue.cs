@@ -88,7 +88,7 @@ public class ANCValue {
         [ANCMode.LegacyAmbientNoise] = "Ambient Noise",
         [ANCMode.WindReduction] = "Wind Reduction",
         [ANCMode.AmbientNoise] = "Ambient Noise",
-        [ANCMode.Normal] = "Normal",
+        [ANCMode.Normal] = "Normal"
     };
 }
 

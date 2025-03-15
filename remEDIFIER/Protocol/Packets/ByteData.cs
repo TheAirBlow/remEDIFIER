@@ -13,6 +13,18 @@ public class ByteData : IPacketData {
     /// Current byte value
     /// </summary>
     public byte Value { get; set; }
+    
+    /// <summary>
+    /// Creates packet data with default values
+    /// </summary>
+    public ByteData() { }
+    
+    /// <summary>
+    /// Creates packet data with specified value
+    /// </summary>
+    /// <param name="value">Value</param>
+    public ByteData(byte value)
+        => Value = value;
 
     /// <summary>
     /// Deserializes packet from byte buffer
