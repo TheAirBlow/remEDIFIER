@@ -41,32 +41,32 @@ public class InfoWidget : IWidget {
     /// <param name="renderer">ImGui renderer</param>
     public void Render(DeviceWindow window, ImGuiRenderer renderer) {
         ImGui.SeparatorText("Basic information");
-        if (window.Client.Support!.Supports(Feature.GetFirmwareVersion))
+        if (window.Client.Supports(Feature.GetFirmwareVersion))
             ImGui.TextUnformatted($"Firmware version: {_version ?? "(loading)"}");
-        if (window.Client.Support!.Supports(Feature.GetMacAddress))
+        if (window.Client.Supports(Feature.GetMacAddress))
             ImGui.TextUnformatted($"MAC address: {_macAddress ?? "(loading)"}");
-        if (window.Client.Support!.Supports(Feature.ShowBattery))
+        if (window.Client.Supports(Feature.ShowBattery))
             ImGui.TextUnformatted($"Battery charge: {_battery ?? "(loading)"}");
         var sameLine = false;
-        if (window.Client.Support!.Supports(Feature.RePair)) {
+        if (window.Client.Supports(Feature.RePair)) {
             if (ImGui.Button("Re-pair"))
                 window.Client.Send(PacketType.RePair, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (window.Client.Support!.Supports(Feature.ManualShutdown)) {
+        if (window.Client.Supports(Feature.ManualShutdown)) {
             if (ImGui.Button("Shutdown"))
                 window.Client.Send(PacketType.Shutdown, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (window.Client.Support!.Supports(Feature.Disconnect)) {
+        if (window.Client.Supports(Feature.Disconnect)) {
             if (ImGui.Button("Disconnect"))
                 window.Client.Send(PacketType.Disconnect, wait: false);
             sameLine = true;
         }
         if (sameLine) ImGui.SameLine();
-        if (window.Client.Support!.Supports(Feature.DeviceResetSettings)) {
+        if (window.Client.Supports(Feature.DeviceResetSettings)) {
             if (ImGui.Button("Factory Reset"))
                 window.Client.Send(PacketType.FactoryReset, wait: false);
             sameLine = true;
@@ -101,11 +101,11 @@ public class InfoWidget : IWidget {
     /// </summary>
     /// <param name="window">Window</param>
     public void ReadSettings(DeviceWindow window) {
-        if (window.Client.Support!.Supports(Feature.GetFirmwareVersion))
+        if (window.Client.Supports(Feature.GetFirmwareVersion))
             window.Client.Send(PacketType.GetFirmwareVersion, notify: true);
-        if (window.Client.Support!.Supports(Feature.GetMacAddress))
+        if (window.Client.Supports(Feature.GetMacAddress))
             window.Client.Send(PacketType.GetMacAddress, notify: true);
-        if (window.Client.Support!.Supports(Feature.ShowBattery))
+        if (window.Client.Supports(Feature.ShowBattery))
             window.Client.Send(PacketType.GetBattery, notify: true);
     }
 }

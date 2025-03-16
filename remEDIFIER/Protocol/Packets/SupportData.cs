@@ -149,7 +149,7 @@ public class SupportData : IPacketData {
             if (((buf[20] >> 4) & 1) == 1) features.Add(Feature.HearingProtection);
             if (((buf[20] >> 5) & 1) == 1) features.Add(Feature.TimeCalibration);
             if (((buf[20] >> 6) & 1) == 1) features.Add(Feature.Recovery);
-            if (((buf[20] >> 7) & 1) == 1) features.Add(Feature.OnDragTwo);
+            if (((buf[20] >> 7) & 1) == 1) features.Add(Feature.MultipointConnection);
         }
         
         if (buf.Length > 21) {
@@ -259,7 +259,7 @@ public enum Feature {
     HearingProtection,
     TimeCalibration,
     Recovery,
-    OnDragTwo,
+    MultipointConnection,
     FastCharge,
     DenoiseMode,
     Study,

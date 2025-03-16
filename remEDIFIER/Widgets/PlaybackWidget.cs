@@ -29,6 +29,7 @@ public class PlaybackWidget : IWidget {
     /// Song name
     /// </summary>
     private string? _song;
+    
     /// <summary>
     /// Render widget with ImGui
     /// </summary>

@@ -66,6 +66,11 @@ public class Configuration {
         public EncryptionType EncryptionType { get; set; }
         
         /// <summary>
+        /// Product identifier
+        /// </summary>
+        public int? ProductId { get; set; }
+        
+        /// <summary>
         /// Should settings be automatically restored
         /// </summary>
         public bool RestoreSettings { get; set; }

@@ -38,6 +38,13 @@ public static class Packet {
         if (data != null && !data.Types.Contains(type)) throw new ArgumentOutOfRangeException(
             nameof(data), $"Specified packet data type does not support {type.ToString()}");
         var dataBuf = data != null ? data.Serialize(type, support) : [];
+        
+        // TODO: move this somewhere else
+        Log.Information(dataBuf.Length > 0 
+                ? "Sent {0} with payload {1}" 
+                : "Sent {0} without payload",
+            type, Convert.ToHexString(dataBuf));
+        
         if (support?.EncryptionType == EncryptionType.XOR)
             for (var i = 0; i < dataBuf.Length; i++)
                 dataBuf[i] ^= 0xA5;
@@ -48,7 +55,7 @@ public static class Packet {
             buf[0] = 0xAA;
             buf[1] = (byte)(dataBuf.Length + 1);
             buf[2] = (byte)type;
-            Hash(buf, 2);
+            Hash(buf, support);
             return buf;
         } else {
             var buf = new byte[dataBuf.Length + 6];
@@ -59,7 +66,7 @@ public static class Packet {
             buf[2] = (byte)type;
             buf[3] = (byte)(dataBuf.Length >> 8);
             buf[4] = (byte)(dataBuf.Length & 0xFF);
-            Hash(buf, 1);
+            Hash(buf, support);
             return buf;
         }
     }
@@ -78,7 +85,7 @@ public static class Packet {
                 nameof(buf), $"Invalid packet header, expected BB or CC but found {buf[0]:X2}");
             if (buf.Length != buf[1] + 4) throw new ArgumentOutOfRangeException(
                 nameof(buf), $"Invalid packet length, expected {buf[1] + 4} but found {buf.Length}");
-            Hash(buf, 2, true);
+            Hash(buf, support, true);
             var type = (PacketType)buf[2];
             _mapping.TryGetValue(type, out var data);
             var payload = new byte[buf[1] - 1];
@@ -96,7 +103,7 @@ public static class Packet {
             var length = (buf[3] << 8) | buf[4];
             if (buf.Length != length + 6) throw new ArgumentOutOfRangeException(
                 nameof(buf), $"Invalid packet length, expected {length + 6} but found {buf.Length}");
-            Hash(buf, 1, true);
+            Hash(buf, support, true);
             var type = (PacketType)buf[2];
             _mapping.TryGetValue(type, out var data);
             var payload = new byte[length];
@@ -114,16 +121,17 @@ public static class Packet {
     /// Sets or verifies signature
     /// </summary>
     /// <param name="buf">Buffer</param>
-    /// <param name="signSize">Sign size</param>
+    /// <param name="support">Support data</param>
     /// <param name="verify">Verify</param>
-    public static void Hash(byte[] buf, int signSize, bool verify = false) {
+    public static void Hash(byte[] buf, SupportData? support = null, bool verify = false) {
+        var signSize = support?.ProtocolVersion <= 1 ? 2 : 1;
         var sum = (ushort)(signSize == 2 ? 8217 : 0);
         for (var i = 0; i < buf.Length - signSize; i++)
             sum += buf[i];
         var val1 = (sum >> 8) & 255;
         var val2 = sum & 255;
         if (verify) {
-            if ((signSize > 0 && buf[^1] != val2) || (signSize > 1 && buf[^2] != val1))
+            if (buf[^1] != val2 || (signSize > 1 && buf[^2] != val1))
                 Log.Warning("Invalid signature, expected {0:X2}{1:X2} but found {2:X2}{3:X2} in {4} (sign size: {5})",
                     val1, val2, buf[^2], buf[^1], Convert.ToHexString(buf), signSize);
             return;
@@ -131,7 +139,6 @@ public static class Packet {
 
         if (signSize > 1)
             buf[^2] = (byte)val1;
-        if (signSize > 0)
-            buf[^1] = (byte)val2;
+        buf[^1] = (byte)val2;
     }
 }

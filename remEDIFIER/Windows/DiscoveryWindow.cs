@@ -73,7 +73,11 @@ public class DiscoveryWindow : ManagedWindow {
                 if (cfg != null) {
                     device.ProtocolVersion = cfg.ProtocolVersion;
                     device.EncryptionType = cfg.EncryptionType;
+                    if (cfg.ProductId != null)
+                        device.Product = Product.Products.First(x => x.Id == cfg.ProductId);
+                    device.UpdateFromBLE(device);
                 }
+                
                 var ble = _discovered.FirstOrDefault(x => x.ClassicAddress == info.MacAddress);
                 if (ble != null) device.UpdateFromBLE(ble);
                 if (device.ClassicAddress != null)
@@ -108,16 +112,17 @@ public class DiscoveryWindow : ManagedWindow {
             MyGui.Text(_showAll ? "Show only compatible devices >>" : "Show incompatible devices >>", 20, Color.DarkGray);
             if (ImGui.IsItemClicked()) _showAll = !_showAll;
             ImGui.SameLine();
-            MyGui.SetNextPadding(right: 5);
+            MyGui.SetNextMargin(right: 5);
             MyGui.SetNextCentered(1f);
-            MyGui.Icon("refresh", new Vector2(16, 16));
+            MyGui.Image("refresh", Scaler.Fit(16, 16));
             if (ImGui.IsItemClicked()) {
                 _discovery.StopDiscovery();
                 _discovery.StartDiscovery();
                 lock (_discovered)
                     _discovered.Clear();
             }
-            if (!_discovered.Any(x => (!x.Info.IsLowEnergyDevice || x.Product != null) && (_showAll || x is { Product: not null }))) {
+            
+            if (!_discovered.Any(x => (!x.Info.IsLowEnergyDevice || x.Product != null) && (_showAll || x is { ProtocolVersion: not null }))) {
                 MyGui.SetNextCentered(0.5f, 0.5f);
                 MyGui.TextWrapped(
                     "No devices have been found yet!\n" +
@@ -125,26 +130,26 @@ public class DiscoveryWindow : ManagedWindow {
                     "so please be patient.");
             } else {
                 List<DiscoveredDevice> discovered;
-                lock (_discovered) discovered = _discovered.Where(x => _showAll || x is { Product: not null }).ToList();
+                lock (_discovered) discovered = _discovered.Where(x => _showAll || x is { ProtocolVersion: not null }).ToList();
                 foreach (var device in discovered) {
                     ImGui.BeginChild(device.Info.MacAddress,
                         new Vector2(ImGui.GetIO().DisplaySize.X - 10, 40 + (device.Status != null ? 18 : 0)));
                     MyGui.PushContentRegion();
                     MyGui.SetNextCentered(0f, 0.5f);
-                    MyGui.Icon(device.Icon, new Vector2(28, 28));
+                    MyGui.Image(device.Icon, Scaler.Fit(28, 28));
                     ImGui.SameLine();
                     MyGui.SetNextCentered(0f, 0.5f);
                     MyGui.Wrapped(() => {
                         ImGui.BeginGroup();
-                        MyGui.Text(device.DisplayName, 28);
+                        MyGui.Text(device.DisplayName, 24);
                         if (device.Status != null)
                             MyGui.Text(device.Status, 18, Color.DarkGray);
                         ImGui.EndGroup();
                     });
                     ImGui.SameLine();
-                    MyGui.SetNextPadding(right: 5);
+                    MyGui.SetNextMargin(right: 5);
                     MyGui.SetNextCentered(1f, 0.5f);
-                    MyGui.Icon("angle-right", new Vector2(28, 28));
+                    MyGui.Image("angle-right", Scaler.Fit(18, 18));
                     MyGui.PopContentRegion();
                     ImGui.EndChild();
                     if (ImGui.IsItemClicked()) 
@@ -168,15 +173,18 @@ public class DiscoveryWindow : ManagedWindow {
     private void Connect(DiscoveredDevice device) {
         _connectingTo?.Client.Disconnect();
         _connectingTo = device;
+        device.Client = new EdifierClient();
         device.Status = "Connecting, please wait...";
         device.Client.DeviceConnected += () => {
+            if (_connectingTo == device)
+                _connectingTo = null;
             var data = device.Client.Send(PacketType.GetSupportedFeatures);
             if (data is not SupportData) {
                 MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", "Failed to receive support data"));
                 device.Client.Disconnect();
                 return;
             }
-
+            
             var window = new DeviceWindow(device);
             Manager.OpenWindow(window);
             device.Status = null;

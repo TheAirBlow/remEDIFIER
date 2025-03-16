@@ -44,7 +44,7 @@ public class DiscoveredDevice {
     /// <summary>
     /// Product information
     /// </summary>
-    public Product? Product { get; private set; }
+    public Product? Product { get; set; }
 
     /// <summary>
     /// Edifier client for this device
@@ -80,12 +80,12 @@ public class DiscoveredDevice {
                 return;
             }
 
-            DisplayName = $"?? {info.DeviceName}";
+            DisplayName = info.DeviceName;
             Icon = "bluetooth";
             return;
         }
             
-        DisplayName = $"?? {info.DeviceName}";
+        DisplayName = info.DeviceName;
         Icon = info.MajorDeviceType == 4 ? "headphones" : "bluetooth";
     }
 
@@ -93,13 +93,13 @@ public class DiscoveredDevice {
     /// Updates device with information from BLE device
     /// </summary>
     public void UpdateFromBLE(DiscoveredDevice device) {
-        if (device.Product == null) return;
+        if (device.Info.IsLowEnergyDevice || device.Product == null) return;
         DisplayName = $"{device.Product.ProductName} (SPP)";
         ClassicAddress = device.ClassicAddress;
         EncryptionType = device.EncryptionType;
         ProtocolVersion = device.ProtocolVersion;
         Product = device.Product;
-        Icon = device.Icon;
+        Icon = "edifier";
     }
 }
 

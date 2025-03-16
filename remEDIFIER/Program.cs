@@ -1,8 +1,8 @@
-﻿using System.Reflection;
+﻿using System.Numerics;
+using System.Reflection;
 using ImGuiNET;
 using Raylib_CsLo;
 using Raylib_ImGui;
-using Raylib_ImGui.Windows;
 using remEDIFIER;
 using remEDIFIER.Bluetooth;
 using remEDIFIER.Windows;
@@ -20,9 +20,9 @@ Raylib.SetConfigFlags(ConfigFlags.FLAG_WINDOW_RESIZABLE);
 Raylib.InitWindow(450, 700, "remEDIFIER");
 Raylib.SetWindowMinSize(450, 700);
 MyGui.Initialize();
-MyGui.PreloadFontSizes(18, 20, 28);
+MyGui.PreloadFontSizes(18, 20, 28, 32);
 
-_ = Icons.Get("edifier");
+_ = Images.Get("edifier");
 Raylib.SetWindowIcon(Assembly.GetExecutingAssembly()
     .GetEmbeddedResource("edifier.png").LoadAsImage(".png"));
 var manager = new WindowManager();

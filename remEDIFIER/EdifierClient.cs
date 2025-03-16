@@ -10,16 +10,6 @@ namespace remEDIFIER;
 /// </summary>
 public class EdifierClient {
     /// <summary>
-    /// Dictionary of packets waiting to be passed over
-    /// </summary>
-    private readonly List<PacketWrapper> _packets = [];
-    
-    /// <summary>
-    /// Bluetooth connection
-    /// </summary>
-    private IBluetooth? _bluetooth;
-    
-    /// <summary>
     /// Discovered device
     /// </summary>
     public DiscoveredDevice? Device { get; private set; }
@@ -33,6 +23,21 @@ public class EdifierClient {
     /// Is client currently connected
     /// </summary>
     public bool Connected { get; private set; }
+    
+    /// <summary>
+    /// Packet queue
+    /// </summary>
+    private readonly Queue<PacketWrapper> _packets = new();
+
+    /// <summary>
+    /// Packet wrapper we are currently waiting for
+    /// </summary>
+    private PacketWrapper? _waitingFor;
+    
+    /// <summary>
+    /// Bluetooth connection
+    /// </summary>
+    private IBluetooth? _bluetooth;
     
     /// <summary>
     /// Data received event
@@ -103,14 +108,17 @@ public class EdifierClient {
         if (Device == null) return;
         _bluetooth!.DeviceConnected += () => {
             Connected = true;
+            new Thread(SenderThread).Start();
             new Thread(() => DeviceConnected?.Invoke()).Start();
         };
         _bluetooth.DeviceDisconnected += () => {
+            _bluetooth = null;
             Log.Information("Disconnected from {0} ({1}, BLE: {2})",
                 Device.Info.DeviceName, Device.Info.MacAddress, Device.Info.IsLowEnergyDevice);
             new Thread(() => DeviceDisconnected?.Invoke()).Start();
         };
         _bluetooth.ErrorOccured += (err, code) => {
+            _bluetooth = null; Connected = false;
             Log.Information("Disconnected with error {0} ({1})", err, code);
             new Thread(() => ErrorOccured?.Invoke(err, code)).Start();
             new Thread(() => DeviceDisconnected?.Invoke()).Start();
@@ -123,14 +131,59 @@ public class EdifierClient {
                 Support.ProtocolVersion = Device.ProtocolVersion;
                 Support.EncryptionType = Device.EncryptionType;
             }
-            var target = _packets.FirstOrDefault(x => x.Type == type && !x.Received);
-            if (target == null) {
-                PacketReceived?.Invoke(type, data);
+            
+            if (_waitingFor == null || _waitingFor.Type != type) {
+                PacketReceived?.Invoke(type, data, payload);
                 return;
             }
-            target.Data = data; target.Received = true;
-            _packets.Remove(target);
+            
+            _waitingFor.ReceivedPayload = payload;
+            _waitingFor.ReceivedData = data;
+            _waitingFor.State = PacketState.Received;
+            if (_waitingFor.NotifyListeners)
+                PacketReceived?.Invoke(type, data, payload);
+            _waitingFor = null;
         };
+    }
+
+    /// <summary>
+    /// Packet sender thread
+    /// </summary>
+    private void SenderThread() {
+        while (true) {
+            while (_packets.Count == 0) {
+                if (!Connected) return;
+                Thread.Sleep(10);
+            }
+            
+            if (!Connected) return;
+            var packet = _packets.Dequeue();
+            if (packet.WaitForResponse)
+                _waitingFor = packet;
+            
+            try {
+                _bluetooth!.Write(packet.Sent);
+            } catch (Exception e) {
+                Log.Warning("Failed to send packet: {0}", e);
+                continue;
+            }
+            
+            packet.State = PacketState.Sent;
+
+            // Trying to send multiple packets without waiting
+            // for a response will cause the headphones to disconnect
+            if (packet.WaitForResponse) {
+                var token = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
+                while (packet.State != PacketState.Received) {
+                    if (!Connected) return;
+                    if (token.IsCancellationRequested) {
+                        Log.Warning("Receiving {0} has timed out", packet.Type);
+                    }
+                
+                    Thread.Sleep(10);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -140,10 +193,19 @@ public class EdifierClient {
     /// <returns>Packet data</returns>
     public void Send(byte[] buf) {
         if (!Connected) throw new InvalidOperationException("No device is connected");
-        Log.Information(buf.Length > 5 ? "Sent {0} with payload {1}" : "Sent {0} without payload", 
-            (PacketType)buf[2], Convert.ToHexString(buf[3..^2]));
         _bluetooth!.Write(buf);
     }
+
+    /// <summary>
+    /// Sends a packet and reads the response
+    /// </summary>
+    /// <param name="type">Packet Type</param>
+    /// <param name="data">Packet Data</param>
+    /// <param name="notify">Notify event listeners</param>
+    /// <param name="wait">Wait for response</param>
+    /// <returns>Packet data</returns>
+    public IPacketData? Send(PacketType type, IPacketData? data = null, bool notify = false, bool wait = true)
+        => Send(type, Packet.Serialize(type, Support, data), notify, wait).ReceivedData;
     
     /// <summary>
     /// Sends a packet and reads the response
@@ -153,52 +215,100 @@ public class EdifierClient {
     /// <param name="notify">Notify event listeners</param>
     /// <param name="wait">Wait for response</param>
     /// <returns>Packet data</returns>
-    public IPacketData? Send(PacketType type, IPacketData? data = null, bool notify = false, bool wait = true) {
-        if (!Connected) throw new InvalidOperationException("No device is connected");
-        var buf = Packet.Serialize(type, Support, data);
-        _bluetooth!.Write(buf);
-        var serialized = data?.Serialize(type, Support) ?? [];
-        Log.Information(
-            serialized.Length > 0 ? "Sent {0} with payload {1}" : "Sent {0} without payload",
-            type, Convert.ToHexString(serialized));
-        if (!wait) return null;
-        var wrapper = new PacketWrapper { Type = type };
-        _packets.Add(wrapper);
+    public PacketWrapper Send(PacketType type, byte[] data, bool notify = false, bool wait = true) {
+        var wrapper = new PacketWrapper(type, data, notify, wait);
+        _packets.Enqueue(wrapper);
+        if (!wait) return wrapper;
         var token = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
-        while (!wrapper.Received) {
-            if (token.IsCancellationRequested) {
-                Log.Warning("{0} has timed out", type);
-                return null;
-            }
+        while (wrapper.State != PacketState.Received) {
+            if (token.IsCancellationRequested) return wrapper;
             Thread.Sleep(10);
         }
         
-        if (notify) PacketReceived?.Invoke(type, wrapper.Data);
-        return wrapper.Data;
+        return wrapper;
     }
+    
+    /// <summary>
+    /// Does device support feature
+    /// </summary>
+    /// <param name="feature">Feature</param>
+    /// <returns>True if supports</returns>
+    public bool Supports(Feature feature)
+        => Support?.Features.Contains(feature) ?? false;
     
     /// <summary>
     /// Packet received delegate
     /// </summary>
-    public delegate void PacketReceivedDelegate(PacketType type, IPacketData? data);
+    public delegate void PacketReceivedDelegate(PacketType type, IPacketData? data, byte[] payload);
 
     /// <summary>
     /// Simple packet wrapper
     /// </summary>
-    private class PacketWrapper {
+    public class PacketWrapper {
         /// <summary>
         /// Packet type
         /// </summary>
         public PacketType Type { get; set; }
         
         /// <summary>
-        /// Packet data
+        /// Sent data buffer
         /// </summary>
-        public IPacketData? Data { get; set; }
+        public byte[] Sent { get; set; }
         
         /// <summary>
-        /// Was the packet received
+        /// Received payload (decrypted)
         /// </summary>
-        public bool Received { get; set; }
+        public byte[]? ReceivedPayload { get; set; }
+        
+        /// <summary>
+        /// Deserialized received data
+        /// </summary>
+        public IPacketData? ReceivedData { get; set; }
+        
+        /// <summary>
+        /// Packet state
+        /// </summary>
+        public PacketState State { get; set; }
+        
+        /// <summary>
+        /// Notify event listeners
+        /// </summary>
+        public bool NotifyListeners { get; set; }
+        
+        /// <summary>
+        /// Should we wait for a response
+        /// </summary>
+        public bool WaitForResponse { get; set; }
+
+        /// <summary>
+        /// Creates a new packet wrapper
+        /// </summary>
+        /// <param name="type">Packet type</param>
+        /// <param name="buf">Packet buffer</param>
+        /// <param name="notify">Notify event listeners</param>
+        /// <param name="wait">Wait for response</param>
+        public PacketWrapper(PacketType type, byte[] buf, bool notify = false, bool wait = true) {
+            Type = type; Sent = buf; NotifyListeners = notify; WaitForResponse = wait;
+        }
+    }
+    
+    /// <summary>
+    /// Packet state
+    /// </summary>
+    public enum PacketState {
+        /// <summary>
+        /// Packet is queued for sending
+        /// </summary>
+        Queued,
+        
+        /// <summary>
+        /// Packet was sent
+        /// </summary>
+        Sent,
+        
+        /// <summary>
+        /// Received response
+        /// </summary>
+        Received
     }
 }

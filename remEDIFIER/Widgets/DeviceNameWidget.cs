@@ -39,7 +39,7 @@ public class DeviceNameWidget : SerializableWidget, IWidget {
         ImGui.Text("Takes effect after re-pairing and restarting the device");
         ImGui.InputText("##name", ref _nameField, (uint)(window.Client.Support?.MaxDeviceName ?? 10));
         ImGui.SameLine();
-        if (window.Client.Support!.Supports(Feature.SetDeviceName) && ImGui.Button("Save")) {
+        if (window.Client.Supports(Feature.SetDeviceName) && ImGui.Button("Save")) {
             DeviceName = _nameField; SaveSettings(window);
             window.Client.Send(PacketType.SetDeviceName, 
                 new StringData { Value = _nameField }, wait: false);

@@ -35,8 +35,8 @@ public class PlayData : IPacketData {
     public void Deserialize(PacketType type, SupportData? support, byte[] buf) {
         Playing = buf[0] == 0x01;
         if (!Playing) return;
-        Author = Encoding.UTF8.GetString(buf, 3, buf[1]).Replace("\ufffd", "");
-        Song = Encoding.UTF8.GetString(buf, buf[1] + 3, buf[2]).Replace("\ufffd", "");
+        Song = Encoding.UTF8.GetString(buf, 3, buf[1]).Replace("\ufffd", "");
+        Author = Encoding.UTF8.GetString(buf, buf[1] + 3, buf[2]).Replace("\ufffd", "");
         if (Author.Contains("unknow", StringComparison.OrdinalIgnoreCase) // this is intentional!
             || Author.Contains("Not Provided", StringComparison.OrdinalIgnoreCase))
             Author = "<Unknown>";

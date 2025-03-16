@@ -36,7 +36,7 @@ public class ShutdownWidget : SerializableWidget, IWidget {
     /// <param name="renderer">ImGui renderer</param>
     public void Render(DeviceWindow window, ImGuiRenderer renderer) {
         ImGui.SeparatorText("Shutdown timer");
-        if (window.Client.Support!.Supports(Feature.ShutdownTimer)) {
+        if (window.Client.Supports(Feature.ShutdownTimer)) {
             int value = ShutdownTimer ?? 0;
             var format = $"{value % 60} seconds";
             if (value > 60) format = $"{Math.Floor(value / 60f) % 60} minutes {format}";
@@ -53,7 +53,7 @@ public class ShutdownWidget : SerializableWidget, IWidget {
             }
         }
 
-        if (window.Client.Support!.Supports(Feature.NoAudioAutoShutdown)) {
+        if (window.Client.Supports(Feature.NoAudioAutoShutdown)) {
             var temp = NoAudioAutoShutdown ?? true;
             ImGui.Checkbox("Shutdown after 20 minutes without audio", ref temp);
             if (NoAudioAutoShutdown != null && temp != NoAudioAutoShutdown) window.Client.Send(
@@ -101,9 +101,9 @@ public class ShutdownWidget : SerializableWidget, IWidget {
     /// </summary>
     /// <param name="window">Window</param>
     public void ReadSettings(DeviceWindow window) {
-        if (window.Client.Support!.Supports(Feature.NoAudioAutoShutdown))
+        if (window.Client.Supports(Feature.NoAudioAutoShutdown))
             window.Client.Send(PacketType.GetShutdownWithNoAudio, notify: true);
-        if (window.Client.Support!.Supports(Feature.ShutdownTimer))
+        if (window.Client.Supports(Feature.ShutdownTimer))
             window.Client.Send(PacketType.GetShutdownTimer, notify: true);
     }
 }

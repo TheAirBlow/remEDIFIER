@@ -34,13 +34,13 @@ public class AudioWidget : SerializableWidget, IWidget {
     /// <param name="renderer">ImGui renderer</param>
     public void Render(DeviceWindow window, ImGuiRenderer renderer) {
         ImGui.SeparatorText("Audio settings");
-        if (window.Client.Support!.Supports(Feature.Ldac)) {
+        if (window.Client.Supports(Feature.Ldac)) {
             ImGui.Text("LDAC");
             ImGui.SameLine();
             var states = Enum.GetValues<LDACState>();
             for (var i = 0; i < states.Length; i++) {
                 if (states[i] == LDACState.On192K && 
-                    !window.Client.Support!.Supports(Feature.Allow192K))
+                    !window.Client.Supports(Feature.Allow192K))
                     continue;
                 if (i != 0) ImGui.SameLine();
                 var name = states[i].ToString();
@@ -50,7 +50,7 @@ public class AudioWidget : SerializableWidget, IWidget {
             }
         }
 
-        if (window.Client.Support!.Supports(Feature.GameMode)) {
+        if (window.Client.Supports(Feature.GameMode)) {
             var temp = GameMode ?? true;
             ImGui.Checkbox("Game Mode", ref temp);
             if (GameMode != null && temp != GameMode) window.Client.Send(

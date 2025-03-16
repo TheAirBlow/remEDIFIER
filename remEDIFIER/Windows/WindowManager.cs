@@ -40,18 +40,18 @@ public class WindowManager : GuiWindow {
         if (ImGui.Begin("Title Bar", ImGuiWindowFlags.NoDecoration)) {
             MyGui.PushContentRegion();
             if (_windows.Count > 1) {
-                MyGui.SetNextPadding(left: 5);
+                MyGui.SetNextMargin(left: 5);
                 MyGui.SetNextCentered(0f, 0.5f);
-                if (MyGui.IconButton("arrow-left", new Vector2(28, 28)) && _progress == 1)
+                if (MyGui.ImageButton("arrow-left", Scaler.Fit(28, 28)) && _progress == 1)
                     _animRight = false;
                 ImGui.SameLine();
             }
             MyGui.SetNextCentered(0.5f, 0.5f);
             MyGui.Text(_windows[^1].Title, 28);
             ImGui.SameLine();
-            MyGui.SetNextPadding(right: 5);
+            MyGui.SetNextMargin(right: 5);
             MyGui.SetNextCentered(1f, 0.5f);
-            MyGui.Icon(_windows[^1].Icon, new Vector2(28, 28));
+            MyGui.Image(_windows[^1].Icon, Scaler.Fit(28, 28));
             MyGui.PopContentRegion();
             ImGui.End();
         }
@@ -73,7 +73,6 @@ public class WindowManager : GuiWindow {
                 _animRight = true; _progress = 1;
             }
         }
-        _lock.Exit();
         
         for (var i = 0; i < _windows.Count; i++) {
             var window = _windows[i];
@@ -86,6 +85,8 @@ public class WindowManager : GuiWindow {
                 ImGui.End();
             }
         }
+        
+        _lock.Exit();
     }
 
     /// <summary>

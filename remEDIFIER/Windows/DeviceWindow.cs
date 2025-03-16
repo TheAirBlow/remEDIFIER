@@ -1,12 +1,7 @@
-using System.Text.Json;
+using System.Numerics;
 using static remEDIFIER.Configuration;
 using ImGuiNET;
-using Raylib_ImGui;
-using Raylib_ImGui.Windows;
-using remEDIFIER.Bluetooth;
 using remEDIFIER.Protocol;
-using remEDIFIER.Protocol.Packets;
-using remEDIFIER.Widgets;
 using Serilog;
 
 namespace remEDIFIER.Windows;
@@ -16,53 +11,34 @@ namespace remEDIFIER.Windows;
 /// </summary>
 public class DeviceWindow : ManagedWindow {
     /// <summary>
-    /// con to show in the top bar
+    /// Icon to show in the top bar
     /// </summary>
     public override string Icon => "headphones";
     
     /// <summary>
     /// Title to show in the top bar
     /// </summary>
-    public override string Title => Device.Product?.Name ?? Device.Info.DeviceName;
+    public override string Title => "Device info";
     
-    /// <summary>
-    /// List of all widgets
-    /// </summary>
-    private readonly List<Type> _allWidgets = [
-        typeof(InfoWidget), typeof(PlaybackWidget), typeof(EqualizerWidget), 
-        typeof(DeviceNameWidget), typeof(AudioWidget), typeof(ShutdownWidget),
-        typeof(VolumeWidget), typeof(DebugWidget)
-    ];
-    
-    /// <summary>
-    /// Connected device
-    /// </summary>
-    public DiscoveredDevice Device { get; private set; }
-
     /// <summary>
     /// Edifier client
     /// </summary>
     public EdifierClient Client => Device.Client;
     
     /// <summary>
-    /// Device configuration
+    /// Connected device
     /// </summary>
-    public Device? DeviceConfig { get; private set; }
-
-    /// <summary>
-    /// Widgets to render
-    /// </summary>
-    private readonly List<IWidget> _widgets;
+    public DiscoveredDevice Device { get; }
     
     /// <summary>
-    /// List of not supported features
+    /// Device configuration
     /// </summary>
-    private readonly List<Feature> _notSupported;
-
+    public Device? DeviceConfig { get; }
+    
     /// <summary>
-    /// Frame counter for auto resize
+    /// Device information
     /// </summary>
-    private int _frames;
+    public DeviceInformation Info { get; }
 
     /// <summary>
     /// Creates a new device window
@@ -70,6 +46,7 @@ public class DeviceWindow : ManagedWindow {
     /// <param name="device">Device</param>
     public DeviceWindow(DiscoveredDevice device) {
         Device = device;
+        Info = new DeviceInformation(Client);
         Client.PacketReceived += PacketReceived;
         Client.DeviceDisconnected += OnClosed;
         DeviceConfig = Config.Devices.FirstOrDefault(x => x.MacAddress == Device.Info.MacAddress);
@@ -79,68 +56,60 @@ public class DeviceWindow : ManagedWindow {
                 ProtocolVersion = Device.ProtocolVersion!.Value,
                 EncryptionType = Device.EncryptionType!.Value
             };
+            if (device.Product != null)
+                DeviceConfig.ProductId = device.Product.Id;
             Config.Devices.Add(DeviceConfig);
             Config.Save();
         }
         
-        _widgets = _allWidgets
-            .Select(x => DeviceConfig.Widgets.TryGetValue(x.Name, out var json) 
-                ? (IWidget)json.Deserialize(x, JsonContext.Default)!
-                : (IWidget)Activator.CreateInstance(x)!)
-            .Where(x => x.Features.Length == 0 || Client.Support!.Features.Any(y => x.Features.Contains(y))).ToList();
-        var supported = _widgets.SelectMany(x => x.Features);
-        _notSupported = Client.Support!.Features.Where(x => !supported.Contains(x)).ToList();
-        if (_notSupported.Count > 0)
-            Log.Warning("Some features are not supported: {0}", string.Join(", ", _notSupported));
-        foreach (var widget in _widgets)
-            try { widget.ReadSettings(this); }
-            catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
+        Log.Information("Detected features: {0}", string.Join(", ", Client.Support!.Features));
+        Info.Request();
     }
     
     /// <summary>
     /// Draws window GUI
     /// </summary>
     public override void Draw() {
-        if (Client.Connected) {
-            ImGui.Text("TODO: redo this whole thing");
-            foreach (var widget in _widgets)
-                try { widget.Render(this, MyGui.Renderer); }
-                catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
-            
-            if (_notSupported.Count > 0) {
-                ImGui.SeparatorText("Missing features");
-                ImGui.TextWrapped(string.Join(", ", _notSupported));
-            }
-
-            if (_frames < 2) _frames++;
-            var check = DeviceConfig!.RestoreSettings;
-            ImGui.Checkbox("Restore settings", ref check);
-            if (!check && DeviceConfig.RestoreSettings) {
-                DeviceConfig.RestoreSettings = false;
-                Config.Save();
-            }
-            if (check && !DeviceConfig.RestoreSettings) {
-                DeviceConfig.RestoreSettings = true;
-                Config.Save();
-            }
-                    
-            ImGui.End();
-            return;
-        } 
-            
-        ImGui.Text("Connecting, please wait...");
-        ImGui.End();
+        ImGui.BeginChild("Information",
+            new Vector2(ImGui.GetContentRegionAvail().X, 110));
+        ImGui.BeginGroup();
+        MyGui.LoadingText("%s", Info.DeviceName, 32);
+        MyGui.LoadingText("MAC address: %s", Info.MacAddress, 18);
+        MyGui.LoadingText("Firmware version: %s", Info.FirmwareVersion, 18);
+        MyGui.LoadingText("Battery charge: %s%", Info.Battery, 18);
+        ImGui.EndGroup();
+        ImGui.SameLine();
+        MyGui.SetNextCentered(1f);
+        var link = Device.Product?.ProductImageLink;
+        var image = link != null ? Images.Get(link) : Images.Get("unknown");
+        MyGui.Image(image, Scaler.Fit(105, 105));
+        ImGui.EndChild();
+        ImGui.Separator();
+        ImGui.BeginChild("Debugging",
+            new Vector2(ImGui.GetIO().DisplaySize.X - 10, 50));
+        MyGui.PushContentRegion();
+        MyGui.SetNextCentered(0f, 0.5f);
+        MyGui.Image("bug", Scaler.Fit(28, 28));
+        ImGui.SameLine();
+        MyGui.SetNextCentered(0f, 0.5f);
+        MyGui.Text("Debugging toolbox", 24);
+        ImGui.SameLine();
+        MyGui.SetNextMargin(right: 5);
+        MyGui.SetNextCentered(1f, 0.5f);
+        MyGui.Image("angle-right", Scaler.Fit(18, 18));
+        MyGui.PopContentRegion();
+        ImGui.EndChild();
+        ImGui.Separator();
     }
-    
+
     /// <summary>
     /// Handles received packet
     /// </summary>
     /// <param name="type">Type</param>
     /// <param name="data">Data</param>
-    private void PacketReceived(PacketType type, IPacketData? data) {
-        foreach (var widget in _widgets)
-            try { if (widget.PacketReceived(this, type, data)) return; }
-            catch (Exception e) { Log.Error("Widget threw an exception: {0}", e); }
+    /// <param name="payload">Payload</param>
+    private void PacketReceived(PacketType type, IPacketData? data, byte[] payload) {
+        Info.Update(type, data);
     }
 
     /// <summary>

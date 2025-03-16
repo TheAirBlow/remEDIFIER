@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+IFS=$'\n'
+
+for file in $(find . -type f -name "*.svg"); do
+  inkscape -w 256 "$file" -o "${file%.*}.png"
+  magick "${file%.*}.png" -resize 256x256 -gravity center -background none -extent 256x256 -channel RGB -negate "${file%.*}.png"
+  rm "$file"
+done
