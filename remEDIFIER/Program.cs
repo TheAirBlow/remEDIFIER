@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using System.Reflection;
+﻿using System.Reflection;
 using ImGuiNET;
 using Raylib_CsLo;
 using Raylib_ImGui;
@@ -27,7 +26,6 @@ Raylib.SetWindowIcon(Assembly.GetExecutingAssembly()
     .GetEmbeddedResource("edifier.png").LoadAsImage(".png"));
 var manager = new WindowManager();
 MyGui.Renderer.OpenWindow(manager);
-//manager.OpenWindow(new TestWindow(0));
 manager.OpenWindow(new DiscoveryWindow());
 
 Log.Information("Running main game loop");
@@ -36,27 +34,10 @@ while (!Raylib.WindowShouldClose()) {
     Raylib.BeginDrawing();
     ImGui.NewFrame();
     Raylib.ClearBackground(new Color(0, 0, 0, 255));
-    /*Raylib.DrawTexture(logo, Raylib.GetRenderWidth() / 2 - 185,
-        Raylib.GetRenderHeight() / 2 - 64, new Color(255, 255, 255, 255));*/
     ImGui.DockSpaceOverViewport(ImGui.GetMainViewport(),
         ImGuiDockNodeFlags.PassthruCentralNode);
     
     MyGui.Renderer.DrawWindows();
-    /*if (ImGui.BeginMainMenuBar()) {
-        if (ImGui.BeginMenu("Open")) {
-            if (ImGui.MenuItem("ImGui Demo"))
-                MyGui.Renderer.OpenWindow(new DemoWindow());
-            ImGui.EndMenu();
-        }
-        if (ImGui.BeginMenu("Help")) {
-            if (ImGui.MenuItem("About Raylib-ImGui"))
-                MyGui.Renderer.OpenWindow(new AboutWindow());
-            ImGui.EndMenu();
-        }
-        
-        ImGui.EndMainMenuBar();
-    }*/
-    
     MyGui.Renderer.RenderImGui();
     Raylib.EndDrawing();
 }

@@ -3,7 +3,7 @@ using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
 using Serilog;
 
-namespace remEDIFIER;
+namespace remEDIFIER.Device;
 
 /// <summary>
 /// Edifier bluetooth client
@@ -12,7 +12,7 @@ public class EdifierClient {
     /// <summary>
     /// Discovered device
     /// </summary>
-    public DiscoveredDevice? Device { get; private set; }
+    public EdifierDevice? Device { get; private set; }
     
     /// <summary>
     /// Support data if available
@@ -64,11 +64,12 @@ public class EdifierClient {
     /// </summary>
     /// <param name="device">Device</param>
     /// <param name="adapter">Adapter</param>
-    public void Connect(DiscoveredDevice device, BluetoothAdapter adapter) {
+    public void Connect(EdifierDevice device, BluetoothAdapter adapter) {
+        if (device.Extra == null)
+            throw new ArgumentException("BLE information must be available", nameof(device));
         Device = device;
         Support = new SupportData {
-            ProtocolVersion = device.ProtocolVersion,
-            EncryptionType = device.EncryptionType
+            Extra = device.Extra
         };
         Log.Information("Connecting to {0} ({1}, BLE: {2})",
             device.Info.DeviceName, device.Info.MacAddress, device.Info.IsLowEnergyDevice);
@@ -77,10 +78,10 @@ public class EdifierClient {
         if (device.Info.IsLowEnergyDevice) {
             var lowEnergy = new BluetoothLowEnergy();
             _bluetooth = lowEnergy; RegisterEvents();
-            if (device.Product == null) throw new InvalidDataException($"{device.Info.DeviceName} is not an Edifier product");
+            if (device.Extra.Product == null) throw new InvalidDataException($"{device.Info.DeviceName} is not an Edifier product");
             lowEnergy.Connect(adapter.AdapterAddress!, device.Info.MacAddress,
-                device.Product.ProductServiceUuid, device.Product.ProductWriteUuid,
-                device.Product.ProductReadUuid);
+                device.Extra.Product.ProductServiceUuid, device.Extra.Product.ProductWriteUuid,
+                device.Extra.Product.ProductReadUuid);
             return;
         }
 
@@ -128,8 +129,7 @@ public class EdifierClient {
             Log.Information("Received {0} with payload {1}", type, Convert.ToHexString(payload));
             if (type == PacketType.GetSupportedFeatures) {
                 Support = (SupportData)data!;
-                Support.ProtocolVersion = Device.ProtocolVersion;
-                Support.EncryptionType = Device.EncryptionType;
+                Support.Extra = Device.Extra;
             }
             
             if (_waitingFor == null || _waitingFor.Type != type) {
@@ -174,7 +174,7 @@ public class EdifierClient {
             // for a response will cause the headphones to disconnect
             if (packet.WaitForResponse) {
                 var token = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
-                while (packet.State != PacketState.Received) {
+                while (packet.State != PacketState.Received && !token.IsCancellationRequested) {
                     if (!Connected) return;
                     if (token.IsCancellationRequested) {
                         Log.Warning("Receiving {0} has timed out", packet.Type);

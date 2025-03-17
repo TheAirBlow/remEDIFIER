@@ -1,3 +1,4 @@
+using remEDIFIER.Protocol.Packets;
 using Serilog;
 
 namespace remEDIFIER.Protocol.Values;
@@ -17,11 +18,6 @@ public class EqualizerValue {
     public EqualizerPreset[] Presets { get; set; }
     
     /// <summary>
-    /// Array of equalizer preset names
-    /// </summary>
-    public string[] Names { get; set; }
-    
-    /// <summary>
     /// Whether equalizer is supported or not
     /// </summary>
     public bool Supported => Value != 0;
@@ -30,10 +26,12 @@ public class EqualizerValue {
     /// Creates a new equalizer value
     /// </summary>
     /// <param name="value">Value</param>
-    public EqualizerValue(byte value) {
+    /// <param name="data">Support data</param>
+    public EqualizerValue(byte value, SupportData? data) {
         if (!_valueMapping.TryGetValue(value, out var types)) types = [];
-        Names = types.Select(x => _nameMapping[x]).ToArray();
         Value = value; Presets = types;
+        if (!PatchManager.ShowCustomEq(data))
+            Presets = Presets.Where(x => x != EqualizerPreset.Customized).ToArray();
     }
     
     /// <summary>
@@ -98,7 +96,7 @@ public class EqualizerValue {
     /// <summary>
     /// Equalizer preset to display name mapping
     /// </summary>
-    private readonly Dictionary<EqualizerPreset, string> _nameMapping = new() {
+    public readonly Dictionary<EqualizerPreset, string> Names = new() {
         [EqualizerPreset.Classic] = "Classic",
         [EqualizerPreset.Classical] = "Classical",
         [EqualizerPreset.Pop] = "Pop",

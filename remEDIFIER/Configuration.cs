@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using remEDIFIER.Device;
 using Serilog;
 
 namespace remEDIFIER; 
@@ -38,46 +39,36 @@ public class Configuration {
     /// <summary>
     /// A list of devices hat user has connected to before
     /// </summary>
-    public List<Device> Devices { get; set; } = [];
+    public List<DeviceConfig> Devices { get; set; } = [];
     
     /// <summary>
     /// Save configuration changes
     /// </summary>
     public void Save() => File.WriteAllText("config.json", 
         JsonSerializer.Serialize(Config, JsonContext.Default.Configuration));
+}
 
+/// <summary>
+/// Device configuration
+/// </summary>
+public class DeviceConfig {
     /// <summary>
-    /// Device configuration
+    /// Bluetooth MAC address
     /// </summary>
-    public class Device {
-        /// <summary>
-        /// Bluetooth MAC address
-        /// </summary>
-        public string MacAddress { get; set; } = "";
+    public string MacAddress { get; set; } = "";
         
-        /// <summary>
-        /// Protocol version
-        /// </summary>
-        public int ProtocolVersion { get; set; }
+    /// <summary>
+    /// Protocol version
+    /// </summary>
+    public int ProtocolVersion { get; set; }
     
-        /// <summary>
-        /// Encryption type
-        /// </summary>
-        public EncryptionType EncryptionType { get; set; }
+    /// <summary>
+    /// Encryption type
+    /// </summary>
+    public EncryptionType EncryptionType { get; set; }
         
-        /// <summary>
-        /// Product identifier
-        /// </summary>
-        public int? ProductId { get; set; }
-        
-        /// <summary>
-        /// Should settings be automatically restored
-        /// </summary>
-        public bool RestoreSettings { get; set; }
-
-        /// <summary>
-        /// List of serialized widgets
-        /// </summary>
-        public Dictionary<string, JsonObject> Widgets { get; set; } = new();
-    }
+    /// <summary>
+    /// Product identifier
+    /// </summary>
+    public int ProductId { get; set; }
 }

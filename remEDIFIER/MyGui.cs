@@ -145,6 +145,74 @@ public static class MyGui {
     }
 
     /// <summary>
+    /// Draws scrolling text with specified options
+    /// </summary>
+    /// <param name="text">Content</param>
+    /// <param name="width">Width</param>
+    /// <param name="size">Font size</param>
+    /// <param name="tint">Color tint</param>
+    public static void ScrollingText(string text, float width, int? size = null, Color? tint = null) {
+        if (size.HasValue)
+            ImGui.PushFont(GetFont(size.Value));
+        Wrapped(() => {
+            var io = ImGui.GetIO();
+            var textSize = ImGui.CalcTextSize(text);
+            if (textSize.X <= width) {
+                if (!tint.HasValue) ImGui.TextUnformatted(text);
+                else ImGui.TextColored(tint.Value.ToVec4(), text);
+                return;
+            }
+            
+            ImGui.PushID(text);
+            var storage = ImGui.GetStateStorage();
+            var idScrollTime = ImGui.GetID("##ScrollTime");
+            var idPauseTime = ImGui.GetID("##PauseTime");
+            var idIsPaused = ImGui.GetID("##IsPaused");
+            var scrollTime = storage.GetFloat(idScrollTime);
+            var pauseTime = storage.GetFloat(idPauseTime, 0);
+            var isPaused = storage.GetBool(idIsPaused, true);
+            
+            var totalLength = textSize.X + 100f;
+            if (isPaused) {
+                pauseTime += io.DeltaTime;
+                if (pauseTime >= 1f) {
+                    pauseTime = 0.0f;
+                    isPaused = false;
+                }
+            } else {
+                scrollTime += io.DeltaTime * 50f;
+                if (scrollTime >= totalLength) {
+                    scrollTime -= totalLength;
+                    isPaused = true;
+                }
+            }
+            
+            storage.SetFloat(idScrollTime, scrollTime);
+            storage.SetFloat(idPauseTime, pauseTime);
+            storage.SetBool(idIsPaused, isPaused);
+            
+            var cursorScreenPos = ImGui.GetCursorScreenPos();
+            ImGui.PushClipRect(cursorScreenPos, cursorScreenPos + new Vector2(width, textSize.Y), true);
+            var cursor = ImGui.GetCursorPos();
+            
+            ImGui.SetCursorPosX(cursor.X - scrollTime);
+            if (!tint.HasValue) ImGui.TextUnformatted(text);
+            else ImGui.TextColored(tint.Value.ToVec4(), text);
+            ImGui.SameLine();
+            
+            ImGui.SetCursorPosX(cursor.X - scrollTime + totalLength);
+            if (!tint.HasValue) ImGui.TextUnformatted(text);
+            else ImGui.TextColored(tint.Value.ToVec4(), text);
+            
+            ImGui.SetCursorPos(cursor);
+            ImGui.PopClipRect();
+            ImGui.PopID();
+        }, new Vector2(Math.Min(width, ImGui.CalcTextSize(text).X), size ?? 24));
+        if (size.HasValue)
+            ImGui.PopFont();
+    }
+
+    /// <summary>
     /// Draws text with specified options
     /// </summary>
     /// <param name="text">Content</param>
@@ -367,7 +435,7 @@ public static class MyGui {
     /// <param name="size">Content size</param>
     public static void Wrapped(Action method, Vector2? size = null) {
         var centerRatio = _centerRatio;
-        var padding = _margin;
+        var margin = _margin;
         _centerRatio = Vector2.Zero;
         _margin = Vector4.Zero;
         
@@ -382,35 +450,35 @@ public static class MyGui {
         }
 
         if (centerRatio.Y != 0) {
-            var offset = (GetContentSize().Y - size!.Value.Y - padding.X - padding.W) * centerRatio.Y;
+            var offset = (GetContentSize().Y - size!.Value.Y - margin.X - margin.W) * centerRatio.Y;
             var diff = Math.Max(0, GetContentSize().Y - ImGui.GetContentRegionAvail().Y);
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offset - diff);
         }
 
         if (centerRatio.X != 0) {
-            var offset = (GetContentSize().X - size!.Value.X - padding.Y - padding.Z) * centerRatio.X;
+            var offset = (GetContentSize().X - size!.Value.X - margin.Y - margin.Z) * centerRatio.X;
             var diff = Math.Max(0, GetContentSize().X - ImGui.GetContentRegionAvail().X);
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + offset - diff);
         }
 
-        if (padding != Vector4.Zero) {
+        if (margin != Vector4.Zero) {
             ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(0, 0));
             ImGui.BeginGroup();
-            ImGui.Dummy(new Vector2(padding.Y, 0));
-            ImGui.SameLine();
+            if (margin.Y > 0)
+                ImGui.Indent(margin.Y);
             ImGui.BeginGroup();
-            ImGui.Dummy(new Vector2(0, padding.X));
+            ImGui.Dummy(new Vector2(0, margin.X));
         }
         
         method();
         
-        if (padding != Vector4.Zero) {
-            ImGui.Dummy(new Vector2(0, padding.W));
+        if (margin != Vector4.Zero) {
+            ImGui.Dummy(new Vector2(margin.W, 0));
             ImGui.EndGroup();
-            ImGui.SameLine();
-            ImGui.Dummy(new Vector2(padding.Z, 0));
+            if (margin.Z > 0)
+                ImGui.Indent(margin.Z);
+            ImGui.EndGroup();
             ImGui.PopStyleVar();
-            ImGui.EndGroup();
         }
     }
 
@@ -481,6 +549,11 @@ public class Scaler {
     /// Scaler constraint
     /// </summary>
     public Vector4 Padding { get; set; }
+    
+    /// <summary>
+    /// Padding ratio
+    /// </summary>
+    public Vector2 Ratio { get; set; }
 
     /// <summary>
     /// Creates a new scaler
@@ -488,8 +561,9 @@ public class Scaler {
     /// <param name="operation">Operation</param>
     /// <param name="constraint">Constraint</param>
     /// <param name="padding">Extra padding</param>
-    public Scaler(ScalerOperation operation, Vector2 constraint, Vector4? padding = null) {
-        Operation = operation; Constraint = constraint; Padding = padding ?? Vector4.Zero;
+    /// <param name="ratio">Padding ratio</param>
+    public Scaler(ScalerOperation operation, Vector2 constraint, Vector4? padding = null, Vector2? ratio = null) {
+        Operation = operation; Constraint = constraint; Padding = padding ?? Vector4.Zero; Ratio = ratio ?? new Vector2(0.5f, 0.5f); 
     }
 
     /// <summary>
@@ -498,11 +572,12 @@ public class Scaler {
     /// <param name="width">Width</param>
     /// <param name="height">Height</param>
     /// <param name="padding">Extra padding</param>
+    /// <param name="ratio">Padding ratio</param>
     /// <returns>Scaler</returns>
-    public static Scaler Scale(float width = -1, float height = -1, Vector4? padding = null) {
+    public static Scaler Scale(float width = -1, float height = -1, Vector4? padding = null, Vector2? ratio = null) {
         if (width == -1 && height == -1)
-            throw new ArgumentException("Tt least the width or height are required");
-        return new Scaler(ScalerOperation.Scale, new Vector2(width, height), padding);
+            throw new ArgumentException("At least the width or height are required");
+        return new Scaler(ScalerOperation.Scale, new Vector2(width, height), padding, ratio);
     }
     
     /// <summary>
@@ -511,9 +586,10 @@ public class Scaler {
     /// <param name="width">Width</param>
     /// <param name="height">Height</param>
     /// <param name="padding">Extra padding</param>
+    /// <param name="ratio">Padding ratio</param>
     /// <returns>Scaler</returns>
-    public static Scaler Fit(float width, float height, Vector4? padding = null)
-        => new(ScalerOperation.Fit, new Vector2(width, height), padding);
+    public static Scaler Fit(float width, float height, Vector4? padding = null, Vector2? ratio = null)
+        => new(ScalerOperation.Fit, new Vector2(width, height), padding, ratio);
 
     /// <summary>
     /// Calculates padding for vector
@@ -526,9 +602,14 @@ public class Scaler {
                 return Padding;
             case ScalerOperation.Fit:
                 size = GetSize(size);
-                var padY = (Constraint.Y - size.Y) / 2f;
-                var padX = (Constraint.X - size.X) / 2f;
-                return new Vector4(padY, padX, padX, padY);
+                var padY = Constraint.Y - size.Y;
+                var padX = Constraint.X - size.X;
+                return new Vector4(
+                    padY * Ratio.Y, 
+                    padX * Ratio.X, 
+                    padX * (1 - Ratio.X), 
+                    padY * (1 - Ratio.Y)
+                );
             default:
                 throw new InvalidOperationException();
         }

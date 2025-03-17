@@ -17,11 +17,6 @@ public class ANCValue {
     public ANCMode[] Modes { get; set; }
     
     /// <summary>
-    /// Array of ANC types names
-    /// </summary>
-    public string[] Names { get; set; }
-
-    /// <summary>
     /// Whether ANC is supported or not
     /// </summary>
     public bool Supported => Value != 0;
@@ -31,8 +26,8 @@ public class ANCValue {
     /// </summary>
     /// <param name="value">Value</param>
     public ANCValue(byte value) {
-        if (!_valueMapping.TryGetValue(value, out var types)) types = [];
-        Names = types.Select(x => _nameMapping[x]).ToArray();
+        if (!_valueMapping.TryGetValue(value, out var types))
+            types = [];
         Value = value; Modes = types;
     }
 
@@ -43,7 +38,7 @@ public class ANCValue {
     /// <returns>Index</returns>
     public byte Map(ANCMode mode) {
         var index = Array.IndexOf(Modes, mode);
-        if (index != -1) return (byte)index;
+        if (index != -1) return (byte)(index + 1);
         Log.Warning("ANC mode {0} is not supported", mode);
         return 0xFF;
     }
@@ -64,30 +59,32 @@ public class ANCValue {
     /// </summary>
     private readonly Dictionary<byte, ANCMode[]> _valueMapping = new() {
         [0x00] = [],
-        [0x06] = [ANCMode.Normal, ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.AmbientNoise],
-        [0x0C] = [ANCMode.Normal, ANCMode.NoiseCancellation, ANCMode.AmbientNoise],
-        [0x13] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.AmbientNoise, ANCMode.WindReduction, ANCMode.Normal],
-        [0x17] = [ANCMode.NoiseCancellation, ANCMode.AmbientNoise, ANCMode.Normal],
-        [0x1A] = [ANCMode.HighNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.WindReduction, ANCMode.AmbientNoise, ANCMode.Normal],
-        [0x1F] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.AmbientNoise, ANCMode.WindReduction, ANCMode.Normal],
-        [0x10] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.WindReduction, ANCMode.AmbientNoise, ANCMode.AmbientNoise, ANCMode.Normal],
-        [0x11] = [ANCMode.AdaptiveNoiseCancellation, ANCMode.AmbientNoise, ANCMode.Normal],
-        [0x1C] = [ANCMode.NoiseCancellation, ANCMode.AmbientNoise, ANCMode.Normal],
-        [0x1D] = [ANCMode.AdaptiveNoiseCancellation, ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.LegacyAmbientNoise, ANCMode.Normal]
+        [0x06] = [ANCMode.Normal, ANCMode.HighNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.AmbientSound],
+        [0xF6] = [ANCMode.Normal, ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.AmbientSound],
+        [0x0C] = [ANCMode.Normal, ANCMode.NoiseCancellation, ANCMode.AmbientSound],
+        [0x13] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.AmbientSoundChoice1, ANCMode.WindReduction, ANCMode.Normal],
+        [0x17] = [ANCMode.NoiseCancellation, ANCMode.AmbientSound, ANCMode.Normal],
+        [0x1A] = [ANCMode.HighNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.WindReduction, ANCMode.AmbientSound, ANCMode.Normal],
+        [0x1F] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.LowNoiseCancellation, ANCMode.AmbientSound, ANCMode.WindReduction, ANCMode.Normal],
+        [0x10] = [ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.WindReduction, ANCMode.AmbientSound, ANCMode.Normal],
+        [0x11] = [ANCMode.AdaptiveNoiseCancellation, ANCMode.AmbientSound, ANCMode.Normal],
+        [0x1C] = [ANCMode.NoiseCancellation, ANCMode.AmbientSound, ANCMode.Normal],
+        [0x1D] = [ANCMode.AdaptiveNoiseCancellation, ANCMode.HighNoiseCancellation, ANCMode.MediumNoiseCancellation, ANCMode.AmbientSoundChoice2, ANCMode.WindReduction, ANCMode.Normal]
     };
 
     /// <summary>
     /// ANC type to display name mapping
     /// </summary>
-    private readonly Dictionary<ANCMode, string> _nameMapping = new() {
+    public readonly Dictionary<ANCMode, string> Names = new() {
         [ANCMode.AdaptiveNoiseCancellation] = "Adaptive Noise Cancellation",
         [ANCMode.MediumNoiseCancellation] = "Medium Noise Cancellation",
         [ANCMode.HighNoiseCancellation] = "High Noise Cancellation",
         [ANCMode.LowNoiseCancellation] = "Low Noise Cancellation",
         [ANCMode.NoiseCancellation] = "Noise Cancellation",
-        [ANCMode.LegacyAmbientNoise] = "Ambient Noise",
+        [ANCMode.AmbientSoundChoice1] = "Ambient Sound",
+        [ANCMode.AmbientSoundChoice2] = "Ambient Sound",
+        [ANCMode.AmbientSound] = "Ambient Sound",
         [ANCMode.WindReduction] = "Wind Reduction",
-        [ANCMode.AmbientNoise] = "Ambient Noise",
         [ANCMode.Normal] = "Normal"
     };
 }
@@ -100,10 +97,11 @@ public enum ANCMode {
     MediumNoiseCancellation,
     HighNoiseCancellation,
     LowNoiseCancellation,
-    LegacyAmbientNoise, // TODO: specify adaptive transparency, highly human voice, balanced, background sound
+    AmbientSoundChoice1, // TODO: specify voice enhancement, balanced, background sound
+    AmbientSoundChoice2, // TODO: specify adaptive transparency, highly human voice, balanced, background sound
     NoiseCancellation,
     WindReduction, // TODO: find out how to specify values
-    AmbientNoise,
+    AmbientSound,
     Unknown,
     Normal
 }

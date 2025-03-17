@@ -1,6 +1,7 @@
 using System.Data;
 using System.Reflection;
 using remEDIFIER.Bluetooth;
+using remEDIFIER.Device;
 using remEDIFIER.Protocol.Packets;
 using Serilog;
 
@@ -45,10 +46,10 @@ public static class Packet {
                 : "Sent {0} without payload",
             type, Convert.ToHexString(dataBuf));
         
-        if (support?.EncryptionType == EncryptionType.XOR)
+        if (support?.Extra?.EncryptionType == EncryptionType.XOR)
             for (var i = 0; i < dataBuf.Length; i++)
                 dataBuf[i] ^= 0xA5;
-        if (support?.ProtocolVersion <= 1) {
+        if (support?.Extra?.ProtocolVersion <= 1) {
             var buf = new byte[dataBuf.Length + 5];
             if (dataBuf.Length != 0)
                 Array.Copy(dataBuf, 0, buf, 3, dataBuf.Length);
@@ -78,7 +79,7 @@ public static class Packet {
     /// <param name="support">Support Data</param>
     /// <returns>Packet Type, Data, Raw Payload</returns>
     public static (PacketType, IPacketData?, byte[]) Deserialize(byte[] buf, SupportData? support = null) {
-        if (support?.ProtocolVersion <= 1) {
+        if (support?.Extra?.ProtocolVersion <= 1) {
             if (buf.Length < 5) throw new ArgumentOutOfRangeException(
                 nameof(buf), "There must be at least 5 bytes in a packet");
             if (buf[0] != 0xBB && buf[0] != 0xCC) throw new ArgumentOutOfRangeException(
@@ -108,7 +109,7 @@ public static class Packet {
             _mapping.TryGetValue(type, out var data);
             var payload = new byte[length];
             Array.Copy(buf, 5, payload, 0, payload.Length);
-            if (support?.EncryptionType == EncryptionType.XOR)
+            if (support?.Extra?.EncryptionType == EncryptionType.XOR)
                 for (var i = 0; i < payload.Length; i++)
                     payload[i] ^= 0xA5;
             if (data == null) return (type, data, payload);
@@ -124,7 +125,7 @@ public static class Packet {
     /// <param name="support">Support data</param>
     /// <param name="verify">Verify</param>
     public static void Hash(byte[] buf, SupportData? support = null, bool verify = false) {
-        var signSize = support?.ProtocolVersion <= 1 ? 2 : 1;
+        var signSize = support?.Extra?.ProtocolVersion <= 1 ? 2 : 1;
         var sum = (ushort)(signSize == 2 ? 8217 : 0);
         for (var i = 0; i < buf.Length - signSize; i++)
             sum += buf[i];

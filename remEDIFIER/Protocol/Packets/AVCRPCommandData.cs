@@ -15,6 +15,18 @@ public class AVCRPCommandData : IPacketData {
     public AVCRPCommand Command { get; set; }
 
     /// <summary>
+    /// Default empty constructor
+    /// </summary>
+    public AVCRPCommandData() { }
+
+    /// <summary>
+    /// Creates an AVCRP command
+    /// </summary>
+    /// <param name="command">Command</param>
+    public AVCRPCommandData(AVCRPCommand command)
+        => Command = command;
+    
+    /// <summary>
     /// Deserializes packet from byte buffer
     /// </summary>
     /// <param name="type">Packet Type</param>

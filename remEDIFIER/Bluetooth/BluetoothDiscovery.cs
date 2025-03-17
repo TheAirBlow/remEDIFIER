@@ -61,7 +61,7 @@ public partial class BluetoothDiscovery {
     /// </summary>
     /// <param name="info">Device Information</param>
     private void DeviceDiscoveredHandler(DeviceInfoStruct info)
-        => DeviceDiscovered?.Invoke(new DeviceInfo(info));
+        => DeviceDiscovered?.Invoke(new BluetoothDevice(info));
 
     /// <summary>
     /// Internal discovery finished handler
@@ -72,7 +72,7 @@ public partial class BluetoothDiscovery {
     /// <summary>
     /// Device discovered delegate
     /// </summary>
-    public delegate void DeviceDiscoveredDelegate(DeviceInfo info);
+    public delegate void DeviceDiscoveredDelegate(BluetoothDevice info);
 
     /// <summary>
     /// Discovery finished delegate
@@ -104,7 +104,7 @@ public partial class BluetoothDiscovery {
 /// <summary>
 /// Managed device information class
 /// </summary>
-public class DeviceInfo {
+public class BluetoothDevice {
     /// <summary>
     /// Display name
     /// </summary>
@@ -149,7 +149,7 @@ public class DeviceInfo {
     /// Creates a managed version of the device info struct
     /// </summary>
     /// <param name="info">Device Information</param>
-    public DeviceInfo(DeviceInfoStruct info) {
+    public BluetoothDevice(DeviceInfoStruct info) {
         DeviceName = info.DeviceName;
         MacAddress = info.MacAddress;
         IsLowEnergyDevice = info.IsLowEnergyDevice;

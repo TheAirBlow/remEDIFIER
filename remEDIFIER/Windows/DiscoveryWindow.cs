@@ -4,6 +4,7 @@ using System.Numerics;
 using ImGuiNET;
 using Raylib_ImGui.Windows;
 using remEDIFIER.Bluetooth;
+using remEDIFIER.Device;
 using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
 using Serilog;
@@ -37,12 +38,12 @@ public class DiscoveryWindow : ManagedWindow {
     /// <summary>
     /// List of discovered devices
     /// </summary>
-    private readonly List<DiscoveredDevice> _discovered = [];
+    private readonly List<EdifierDevice> _discovered = [];
 
     /// <summary>
     /// Device that we're connecting to
     /// </summary>
-    private DiscoveredDevice? _connectingTo;
+    private EdifierDevice? _device;
     
     /// <summary>
     /// Is bluetooth available
@@ -68,20 +69,11 @@ public class DiscoveryWindow : ManagedWindow {
                 info.DeviceName, info.MacAddress, info.IsLowEnergyDevice);
             lock (_discovered) {
                 if (_discovered.Any(x => x.Info.MacAddress == info.MacAddress)) return;
-                var cfg = Config.Devices.FirstOrDefault(x => x.MacAddress == info.MacAddress);
-                var device = new DiscoveredDevice(info);
-                if (cfg != null) {
-                    device.ProtocolVersion = cfg.ProtocolVersion;
-                    device.EncryptionType = cfg.EncryptionType;
-                    if (cfg.ProductId != null)
-                        device.Product = Product.Products.First(x => x.Id == cfg.ProductId);
-                    device.UpdateFromBLE(device);
-                }
-                
-                var ble = _discovered.FirstOrDefault(x => x.ClassicAddress == info.MacAddress);
+                var device = new EdifierDevice(info);
+                if (device.Extra != null)
+                    _discovered.FirstOrDefault(x => x.Info.MacAddress == device.Extra.MacAddress)?.UpdateFromBLE(device);
+                var ble = _discovered.FirstOrDefault(x => x.Extra?.MacAddress == info.MacAddress);
                 if (ble != null) device.UpdateFromBLE(ble);
-                if (device.ClassicAddress != null)
-                    _discovered.FirstOrDefault(x => x.Info.MacAddress == device.ClassicAddress)?.UpdateFromBLE(device);
                 _discovered.Add(device);
             }
         };
@@ -122,16 +114,16 @@ public class DiscoveryWindow : ManagedWindow {
                     _discovered.Clear();
             }
             
-            if (!_discovered.Any(x => (!x.Info.IsLowEnergyDevice || x.Product != null) && (_showAll || x is { ProtocolVersion: not null }))) {
+            List<EdifierDevice> discovered;
+            lock (_discovered) discovered = _discovered.ToList();
+            if (!discovered.Any(x => _showAll || x is { Extra: not null })) {
                 MyGui.SetNextCentered(0.5f, 0.5f);
                 MyGui.TextWrapped(
                     "No devices have been found yet!\n" +
                     "This might take a bit of time,\n" +
                     "so please be patient.");
             } else {
-                List<DiscoveredDevice> discovered;
-                lock (_discovered) discovered = _discovered.Where(x => _showAll || x is { ProtocolVersion: not null }).ToList();
-                foreach (var device in discovered) {
+                foreach (var device in discovered.Where(x => _showAll || x is { Extra: not null })) {
                     ImGui.BeginChild(device.Info.MacAddress,
                         new Vector2(ImGui.GetIO().DisplaySize.X - 10, 40 + (device.Status != null ? 18 : 0)));
                     MyGui.PushContentRegion();
@@ -155,7 +147,6 @@ public class DiscoveryWindow : ManagedWindow {
                     if (ImGui.IsItemClicked()) 
                         Connect(device);
                     ImGui.Separator();
-                    // name += " " + new string('.', (int)ImGui.GetTime() % 3 + 1);
                 }
             }
             
@@ -170,34 +161,82 @@ public class DiscoveryWindow : ManagedWindow {
     /// Connects to a device
     /// </summary>
     /// <param name="device">Device Info</param>
-    private void Connect(DiscoveredDevice device) {
-        _connectingTo?.Client.Disconnect();
-        _connectingTo = device;
-        device.Client = new EdifierClient();
+    private void Connect(EdifierDevice device) {
+        if (_device != null)
+            if (_device.Client.Connected)
+                _device.Client.Disconnect();
+            else DeviceDisconnected();
+        
+        _device = device;
+        RegisterEvents(device);
         device.Status = "Connecting, please wait...";
-        device.Client.DeviceConnected += () => {
-            if (_connectingTo == device)
-                _connectingTo = null;
-            var data = device.Client.Send(PacketType.GetSupportedFeatures);
-            if (data is not SupportData) {
-                MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", "Failed to receive support data"));
-                device.Client.Disconnect();
-                return;
-            }
-            
-            var window = new DeviceWindow(device);
-            Manager.OpenWindow(window);
-            device.Status = null;
-        };
-        device.Client.DeviceDisconnected += () => {
-            if (_connectingTo == device)
-                _connectingTo = null;
-            device.Status = null;
-        };
-        device.Client.ErrorOccured += (err, code) => {
-            MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", $"{err} ({code})"));
-        };
         device.Client.Connect(device, Adapter);
+    }
+
+    /// <summary>
+    /// Handles device connection
+    /// </summary>
+    private void DeviceConnected() {
+        if (_device == null) {
+            Log.Warning("Received connected event with no device chosen");
+            return;
+        } 
+        
+        var data = _device.Client.Send(PacketType.GetSupportedFeatures);
+        if (data is not SupportData) {
+            MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", "Failed to receive support data"));
+            _device.Client.Disconnect();
+            _device.Status = null;
+            _device = null;
+            return;
+        }
+            
+        var window = new DeviceInfoWindow(_device);
+        Manager.OpenWindow(window);
+        _device.Status = "Connected";
+    }
+    
+    /// <summary>
+    /// Handles device disconnection
+    /// </summary>
+    private void DeviceDisconnected() {
+        if (_device == null) {
+            Log.Warning("Received disconnected event with no device chosen");
+            return;
+        } 
+        
+        UnregisterEvents(_device);
+        _device.Status = null;
+        _device = null;
+    }
+    
+    /// <summary>
+    /// Handles bluetooth errors
+    /// </summary>
+    /// <param name="message">Message</param>
+    /// <param name="code">Error code</param>
+    private void ErrorOccured(string message, int code) {
+        MyGui.Renderer.OpenWindow(new PopupWindow("Failed to connect", $"{message} ({code})"));
+    }
+
+    /// <summary>
+    /// Registers events for edifier device
+    /// </summary>
+    /// <param name="device">Device</param>
+    private void RegisterEvents(EdifierDevice device) {
+        device.Client.DeviceDisconnected += DeviceDisconnected;
+        device.Client.DeviceConnected += DeviceConnected;
+        device.Client.ErrorOccured += ErrorOccured;
+    }
+    
+    /// <summary>
+    /// Unregisters events for edifier device
+    /// </summary>
+    /// <param name="device">Device</param>
+    private void UnregisterEvents(EdifierDevice device) {
+        device.Client.DeviceDisconnected -= DeviceDisconnected;
+        device.Client.DeviceConnected -= DeviceConnected;
+        device.Client.ErrorOccured -= ErrorOccured;
     }
 
     /// <summary>

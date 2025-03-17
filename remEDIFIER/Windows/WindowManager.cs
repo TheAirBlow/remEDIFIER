@@ -42,7 +42,7 @@ public class WindowManager : GuiWindow {
             if (_windows.Count > 1) {
                 MyGui.SetNextMargin(left: 5);
                 MyGui.SetNextCentered(0f, 0.5f);
-                if (MyGui.ImageButton("arrow-left", Scaler.Fit(28, 28)) && _progress == 1)
+                if (MyGui.ImageButton("arrow-left", Scaler.Fit(28, 28, ratio: new Vector2(0, 0.5f))) && _progress == 1)
                     _animRight = false;
                 ImGui.SameLine();
             }
@@ -51,7 +51,7 @@ public class WindowManager : GuiWindow {
             ImGui.SameLine();
             MyGui.SetNextMargin(right: 5);
             MyGui.SetNextCentered(1f, 0.5f);
-            MyGui.Image(_windows[^1].Icon, Scaler.Fit(28, 28));
+            MyGui.Image(_windows[^1].Icon, Scaler.Fit(28, 28, ratio: new Vector2(1, 0.5f)));
             MyGui.PopContentRegion();
             ImGui.End();
         }

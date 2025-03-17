@@ -1,12 +1,12 @@
 using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
 
-namespace remEDIFIER;
+namespace remEDIFIER.Device;
 
 /// <summary>
-/// Edifier device information
+/// Edifier device state
 /// </summary>
-public class DeviceInformation {
+public class DeviceState {
     public EdifierClient Client { get; }
     public string? SongAuthor { get; set; }
     public string? SongName { get; set; }
@@ -20,7 +20,7 @@ public class DeviceInformation {
     /// Creates a new device information instance
     /// </summary>
     /// <param name="client">Edifier client</param>
-    public DeviceInformation(EdifierClient client)
+    public DeviceState(EdifierClient client)
         => Client = client;
 
     /// <summary>
@@ -86,11 +86,6 @@ public class DeviceInformation {
             case PacketType.PlayInfo:
                 var info = (PlayData)data!;
                 Playing = info.Playing;
-                if (!Playing) {
-                    SongAuthor = SongName = null;
-                    break;
-                }
-
                 SongAuthor = info.Author;
                 SongName = info.Song;
                 break;
@@ -100,7 +95,6 @@ public class DeviceInformation {
                 break;
             case PacketType.AVCRPState:
                 Playing = ((AVCRPStateData)data!).State == AVCRPState.Playing;
-                if (!Playing) SongAuthor = SongName = null;
                 break;
             case PacketType.SetEqualizer:
                 break;
