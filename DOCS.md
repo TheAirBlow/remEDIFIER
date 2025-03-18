@@ -1,4 +1,7 @@
-# Various documentation
+## Documentation
+> [!WARNING]
+> This is no longer up to date. You should [read the source code](https://github.com/TheAirBlow/remEDIFIER/tree/main/remEDIFIER/Protocol) instead.
+
 This isn't really supposed to be readable by a non-autistic human being. \
 If you have issues deciphering this, make yourself a favor and click off xD
 
