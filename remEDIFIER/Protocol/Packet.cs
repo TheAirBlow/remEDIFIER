@@ -35,10 +35,18 @@ public static class Packet {
     /// <param name="support">Support Data</param>
     /// <param name="data">Packet Data</param>
     /// <returns>Data Buffer</returns>
-    public static byte[] Serialize(PacketType type, SupportData? support = null, IPacketData? data = null) {
-        if (data != null && !data.Types.Contains(type)) throw new ArgumentOutOfRangeException(
-            nameof(data), $"Specified packet data type does not support {type.ToString()}");
-        var dataBuf = data != null ? data.Serialize(type, support) : [];
+    public static byte[] Serialize(PacketType type, SupportData? support = null, IPacketData? data = null)
+        => Serialize(type, support ?? new SupportData(), data != null ? data.Serialize(type, support) : []);
+    
+    /// <summary>
+    /// Serializes an edifier packet
+    /// </summary>
+    /// <param name="type">Packet Type</param>
+    /// <param name="support">Support Data</param>
+    /// <param name="data">Packet Data</param>
+    /// <returns>Data Buffer</returns>
+    public static byte[] Serialize(PacketType type, SupportData? support = null, byte[]? dataBuf = null) {
+        dataBuf ??= [];
         
         // TODO: move this somewhere else
         Log.Information(dataBuf.Length > 0 

@@ -244,6 +244,13 @@ public static class MyGui {
     }
 
     /// <summary>
+    /// Pushes font of size
+    /// </summary>
+    /// <param name="size">Size</param>
+    public static void PushFont(int size)
+        => ImGui.PushFont(GetFont(size));
+
+    /// <summary>
     /// Shows a loading spinner if value is null
     /// </summary>
     /// <param name="text">Content</param>
@@ -428,7 +435,7 @@ public static class MyGui {
     }
     
     /// <summary>
-    /// Applies both centering and padding to a plain ImGui element.
+    /// Applies centering and margin to a plain ImGui element.
     /// Renders a copy of the element offscreen to calculate the size if not specified.
     /// </summary>
     /// <param name="method">Method</param>
@@ -481,7 +488,7 @@ public static class MyGui {
             ImGui.PopStyleVar();
         }
     }
-
+    
     /// <summary>
     /// Converts color to a Vector4
     /// </summary>

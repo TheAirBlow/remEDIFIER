@@ -18,6 +18,11 @@ public abstract class ManagedWindow {
     /// Is this window hidden
     /// </summary>
     public bool Hidden { get; set; }
+    
+    /// <summary>
+    /// Is this window processing something important (disables back button)
+    /// </summary>
+    public bool Processing { get; set; }
 
     /// <summary>
     /// Icon to show in the top bar

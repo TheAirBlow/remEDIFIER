@@ -1,5 +1,6 @@
 using System.Numerics;
 using ImGuiNET;
+using Raylib_CsLo;
 using remEDIFIER.Device;
 using remEDIFIER.Protocol;
 using remEDIFIER.Protocol.Packets;
@@ -12,10 +13,12 @@ namespace remEDIFIER.Windows;
 /// </summary>
 public class DeviceInfoWindow : ManagedWindow {
     /// <summary>
-    /// Array of all device windows
+    /// Array of currently supported features
     /// </summary>
-    private static readonly Type[] _allWindows = [
-        typeof(DebugWindow)
+    private static Feature[] _supported = [
+        Feature.GetMacAddress, Feature.GetFirmwareVersion, Feature.GetDeviceName, Feature.SetDeviceName,
+        Feature.ShowBattery, Feature.MusicInfo, Feature.ManualShutdown, Feature.Disconnect, Feature.RePair,
+        Feature.Disconnect
     ];
     
     /// <summary>
@@ -44,11 +47,6 @@ public class DeviceInfoWindow : ManagedWindow {
     public DeviceState State => Device.State!;
 
     /// <summary>
-    /// Array of supported device windows
-    /// </summary>
-    private DeviceWindow[] _windows;
-
-    /// <summary>
     /// Creates a new device window
     /// </summary>
     /// <param name="device">Device</param>
@@ -58,6 +56,9 @@ public class DeviceInfoWindow : ManagedWindow {
         Client.PacketReceived += PacketReceived;
         Client.DeviceDisconnected += OnClosed;
         Log.Information("Detected features: {0}", string.Join(", ", Client.Support!.Features));
+        var notSupported = Client.Support!.Features.Where(x => !_supported.Contains(x)).ToList();
+        if (notSupported.Count > 0)
+            Log.Warning("Some features are not supported: {0}", string.Join(", ", notSupported));
         State.Request();
     }
     
@@ -69,6 +70,14 @@ public class DeviceInfoWindow : ManagedWindow {
             new Vector2(ImGui.GetContentRegionAvail().X, 110));
         ImGui.BeginGroup();
         MyGui.LoadingText("%s", State.DeviceName, 32);
+        ImGui.SameLine();
+        MyGui.SetNextMargin(6);
+        if (Client.Supports(Feature.SetDeviceName)) {
+            if (MyGui.ImageButton("edit", Scaler.Fit(20, 20)))
+                Manager.OpenWindow(new DeviceNameWindow(Device));
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Change device name");
+        }
         MyGui.LoadingText("MAC address: %s", State.MacAddress, 18);
         MyGui.LoadingText("Firmware version: %s", State.FirmwareVersion, 18);
         MyGui.LoadingText("Battery charge: %s%", State.Battery, 18);
@@ -76,26 +85,19 @@ public class DeviceInfoWindow : ManagedWindow {
         ImGui.SameLine();
         MyGui.SetNextCentered(1f);
         var image = Images.Get(Device.Extra!.Product.ProductImageLink);
-        MyGui.Image(image, Scaler.Fit(105, 105));
+        MyGui.Image(image, Scaler.Fit(105, 105, ratio: new Vector2(1f, 0.5f)));
         ImGui.EndChild();
         ImGui.Separator();
-        
-        ImGui.BeginChild("Debugging",
-            new Vector2(ImGui.GetIO().DisplaySize.X - 10, 50));
-        MyGui.PushContentRegion();
-        MyGui.SetNextCentered(0f, 0.5f);
-        MyGui.Image("bug", Scaler.Fit(28, 28));
-        ImGui.SameLine();
-        MyGui.SetNextCentered(0f, 0.5f);
-        MyGui.Text("Debugging toolbox", 24);
-        ImGui.SameLine();
-        MyGui.SetNextMargin(right: 5);
-        MyGui.SetNextCentered(1f, 0.5f);
-        MyGui.Image("angle-right", Scaler.Fit(18, 18));
-        MyGui.PopContentRegion();
-        ImGui.EndChild();
-        
-        ImGui.Separator();
+        if (Client.Supports(Feature.ManualShutdown) && ButtonPanel("power-off", "Power off"))
+            Client.Send(PacketType.Shutdown, wait: false);
+        if (Client.Supports(Feature.Disconnect) && ButtonPanel("disconnect", "Disconnect"))
+            Client.Send(PacketType.Disconnect, wait: false);
+        if (Client.Supports(Feature.RePair) && ButtonPanel("unpair", "Disconnect and re-pair"))
+            Client.Send(PacketType.RePair, wait: false);
+        if (Client.Supports(Feature.FactoryReset) && ButtonPanel("erase", "Reset to factory settings"))
+            Client.Send(PacketType.FactoryReset, wait: false);
+        if (ButtonPanel("bug", "Debugging toolbox"))
+            Manager.OpenWindow(new DebugWindow(Device));
         ImGui.Dummy(new Vector2(0, 45));
         
         ImGui.SetNextWindowPos(new Vector2(ImGui.GetWindowPos().X - 1, ImGui.GetWindowPos().Y + ImGui.GetWindowHeight() - 44));
@@ -126,6 +128,31 @@ public class DeviceInfoWindow : ManagedWindow {
         ImGui.End();
     }
 
+    /// <summary>
+    /// Draws a button panel
+    /// </summary>
+    /// <param name="icon">Icon</param>
+    /// <param name="title">Title</param>
+    /// <returns>True if clocked</returns>
+    private bool ButtonPanel(string icon, string title) {
+        ImGui.BeginChild(title, new Vector2(ImGui.GetIO().DisplaySize.X - 10, 50));
+        MyGui.PushContentRegion();
+        MyGui.SetNextCentered(0f, 0.5f);
+        MyGui.Image(icon, Scaler.Fit(28, 28));
+        ImGui.SameLine();
+        MyGui.SetNextCentered(0f, 0.5f);
+        MyGui.Text(title, 24);
+        ImGui.SameLine();
+        MyGui.SetNextMargin(right: 5);
+        MyGui.SetNextCentered(1f, 0.5f);
+        MyGui.Image("angle-right", Scaler.Fit(18, 18));
+        MyGui.PopContentRegion();
+        ImGui.EndChild();
+        var clicked = ImGui.IsItemClicked();
+        ImGui.Separator();
+        return clicked;
+    }
+    
     /// <summary>
     /// Handles received packet
     /// </summary>

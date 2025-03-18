@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Numerics;
 using ImGuiNET;
 using Raylib_ImGui;
@@ -27,7 +28,7 @@ public class WindowManager : GuiWindow {
     /// <summary>
     /// Progress value lock
     /// </summary>
-    private Lock _lock = new();
+    private readonly Lock _lock = new();
     
     /// <summary>
     /// Draws window GUI
@@ -42,7 +43,10 @@ public class WindowManager : GuiWindow {
             if (_windows.Count > 1) {
                 MyGui.SetNextMargin(left: 5);
                 MyGui.SetNextCentered(0f, 0.5f);
-                if (MyGui.ImageButton("arrow-left", Scaler.Fit(28, 28, ratio: new Vector2(0, 0.5f))) && _progress == 1)
+                if (MyGui.ImageButton("arrow-left", 
+                        Scaler.Fit(28, 28, ratio: new Vector2(0, 0.5f)),
+                        tint: _windows[^1].Processing ? Color.DarkGray : Color.White) 
+                    && _progress == 1 && !_windows[^1].Processing)
                     _animRight = false;
                 ImGui.SameLine();
             }

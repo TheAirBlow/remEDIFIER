@@ -110,7 +110,7 @@ public class SupportData : IPacketData {
             if (((buf[17] >> 2) & 1) == 1) features.Add(Feature.InEarDetectionSettings);
             if (((buf[17] >> 3) & 1) == 1) features.Add(Feature.TapSensitiveSettings);
             if (((buf[17] >> 4) & 1) == 1) features.Add(Feature.BeepVolumeSettings);
-            if (((buf[17] >> 5) & 1) == 1) features.Add(Feature.DeviceResetSettings);
+            if (((buf[17] >> 5) & 1) == 1) features.Add(Feature.FactoryReset);
             if (((buf[17] >> 6) & 1) == 1) features.Add(Feature.GameMode);
             if (((buf[17] >> 7) & 1) == 1) features.Add(Feature.BoxBattery);
         }
@@ -229,7 +229,7 @@ public enum Feature {
     InEarDetectionSettings,
     TapSensitiveSettings,
     BeepVolumeSettings,
-    DeviceResetSettings,
+    FactoryReset,
     GameMode,
     BoxBattery,
     WearingFitDetection,

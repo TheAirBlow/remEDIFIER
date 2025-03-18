@@ -200,11 +200,7 @@ public class DiscoveryWindow : ManagedWindow {
     /// Handles device disconnection
     /// </summary>
     private void DeviceDisconnected() {
-        if (_device == null) {
-            Log.Warning("Received disconnected event with no device chosen");
-            return;
-        } 
-        
+        if (_device == null) return;
         UnregisterEvents(_device);
         _device.Status = null;
         _device = null;

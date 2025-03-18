@@ -43,6 +43,11 @@ public class EdifierClient {
     /// Data received event
     /// </summary>
     public event PacketReceivedDelegate? PacketReceived;
+    
+    /// <summary>
+    /// Data timed out event
+    /// </summary>
+    public event PacketTimedOutDelegate? PacketTimedOut;
 
     /// <summary>
     /// Device connected event
@@ -174,10 +179,12 @@ public class EdifierClient {
             // for a response will cause the headphones to disconnect
             if (packet.WaitForResponse) {
                 var token = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
-                while (packet.State != PacketState.Received && !token.IsCancellationRequested) {
+                while (packet.State != PacketState.Received) {
                     if (!Connected) return;
                     if (token.IsCancellationRequested) {
                         Log.Warning("Receiving {0} has timed out", packet.Type);
+                        new Thread(() => PacketTimedOut?.Invoke(packet.Type)).Start();
+                        break;
                     }
                 
                     Thread.Sleep(10);
@@ -203,10 +210,11 @@ public class EdifierClient {
     /// <param name="data">Packet Data</param>
     /// <param name="notify">Notify event listeners</param>
     /// <param name="wait">Wait for response</param>
+    /// <param name="wantResponse">Wants response</param>
     /// <returns>Packet data</returns>
-    public IPacketData? Send(PacketType type, IPacketData? data = null, bool notify = false, bool wait = true)
-        => Send(type, Packet.Serialize(type, Support, data), notify, wait).ReceivedData;
-    
+    public IPacketData? Send(PacketType type, IPacketData? data = null, bool notify = false, bool wait = true, bool wantResponse = true)
+        => Send(type, Packet.Serialize(type, Support, data), notify, wait, wantResponse).ReceivedData;
+
     /// <summary>
     /// Sends a packet and reads the response
     /// </summary>
@@ -214,11 +222,12 @@ public class EdifierClient {
     /// <param name="data">Packet Data</param>
     /// <param name="notify">Notify event listeners</param>
     /// <param name="wait">Wait for response</param>
+    /// <param name="wantResponse">Wants response</param>
     /// <returns>Packet data</returns>
-    public PacketWrapper Send(PacketType type, byte[] data, bool notify = false, bool wait = true) {
+    public PacketWrapper Send(PacketType type, byte[] data, bool notify = false, bool wait = true, bool wantResponse = true) {
         var wrapper = new PacketWrapper(type, data, notify, wait);
         _packets.Enqueue(wrapper);
-        if (!wait) return wrapper;
+        if (!wantResponse || !wait) return wrapper;
         var token = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
         while (wrapper.State != PacketState.Received) {
             if (token.IsCancellationRequested) return wrapper;
@@ -240,6 +249,11 @@ public class EdifierClient {
     /// Packet received delegate
     /// </summary>
     public delegate void PacketReceivedDelegate(PacketType type, IPacketData? data, byte[] payload);
+    
+    /// <summary>
+    /// Packet timed out delegate
+    /// </summary>
+    public delegate void PacketTimedOutDelegate(PacketType type);
 
     /// <summary>
     /// Simple packet wrapper
